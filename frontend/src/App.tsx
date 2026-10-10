@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ScrollToTop } from './components';
 import { PublicLayout } from './layouts/PublicLayout';
 import { CaseLayout } from './layouts/CaseLayout';
 import { InstitutionLayout } from './layouts/InstitutionLayout';
+import { ensureAnonymousSession } from './lib/firebase';
 
 import {
   LandingPage,
@@ -35,6 +36,11 @@ const queryClient = new QueryClient({
 });
 
 export function App() {
+  useEffect(() => {
+    // Attempt anonymous sign-in in the background
+    ensureAnonymousSession().catch(() => {});
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
