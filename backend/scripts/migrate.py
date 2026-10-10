@@ -6,7 +6,8 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR / "scripts"))
 
-from migrate import main
+from migrate import main  # noqa: E402
 
 if __name__ == "__main__":
     main()
+

@@ -6,17 +6,17 @@ Rule 5: Every mutation bumps Cases.data_version, writes a ChangeLog row and an A
 Rule 10: Timestamps are generated in the application (UTC, microsecond precision).
 """
 
-from datetime import date, datetime
-from decimal import Decimal
-import json
-from typing import Any
 import uuid
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
+
 from google.cloud import spanner
 from google.cloud.spanner_v1.snapshot import Snapshot
 from google.cloud.spanner_v1.transaction import Transaction
 
 from app.db.audit import append_audit_entry, record_change
-from app.db.bitemporal import as_of_clause, close_edge, insert_edge, now_utc, supersede_edge
+from app.db.bitemporal import as_of_clause, insert_edge, now_utc, supersede_edge
 from app.db.client import run_in_snapshot, run_in_transaction
 
 
@@ -59,7 +59,7 @@ class CasesRepo:
                 return None
             keys = ["case_id", "owner_uid", "seed_key", "mode", "title", "status",
                     "deceased_person_id", "data_version", "created_at", "expires_at"]
-            return dict(zip(keys, rows[0]))
+            return dict(zip(keys, rows[0], strict=False))
         return run_in_snapshot(_get)
 
     @staticmethod
@@ -119,7 +119,7 @@ class PersonRepo:
             """
             rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
             keys = ["person_id", "case_id", "full_name", "role", "sex", "dob", "dod", "personal_law", "alive", "eligibility", "notes", "deleted"]
-            return [dict(zip(keys, r)) for r in rows]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
 
     @staticmethod
@@ -198,7 +198,7 @@ class AssetRepo:
             rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
             keys = ["asset_id", "case_id", "institution_id", "type", "label", "account_ref_masked",
                     "est_value_inr", "ownership", "source_doc_id", "extraction_confidence", "status", "deleted"]
-            return [dict(zip(keys, r)) for r in rows]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
 
     @staticmethod
@@ -281,7 +281,7 @@ class RelationshipRepo:
             """
             rows = list(snap.execute_sql(sql, params={"case_id": case_id, **p}, param_types={"case_id": spanner.param_types.STRING, **pt}))
             keys = ["from_id", "to_id", "rel_type", "case_id", "valid_from", "valid_to", "recorded_from", "recorded_to"]
-            return [dict(zip(keys, r)) for r in rows]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
 
     @staticmethod
@@ -339,7 +339,7 @@ class NomineeRepo:
             """
             rows = list(snap.execute_sql(sql, params={"case_id": case_id, **p}, param_types={"case_id": spanner.param_types.STRING, **pt}))
             keys = ["person_id", "asset_id", "case_id", "share_pct", "valid_from", "valid_to", "recorded_from", "recorded_to"]
-            return [dict(zip(keys, r)) for r in rows]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
 
     @staticmethod
@@ -396,7 +396,7 @@ class OwnsRepo:
             """
             rows = list(snap.execute_sql(sql, params={"case_id": case_id, **p}, param_types={"case_id": spanner.param_types.STRING, **pt}))
             keys = ["person_id", "asset_id", "case_id", "valid_from", "valid_to", "recorded_from", "recorded_to"]
-            return [dict(zip(keys, r)) for r in rows]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
 
     @staticmethod
@@ -426,7 +426,7 @@ class WillRepo:
             if not rows:
                 return None
             keys = ["will_id", "case_id", "doc_id", "status", "executed_on", "bequests"]
-            return dict(zip(keys, rows[0]))
+            return dict(zip(keys, rows[0], strict=False))
         return run_in_snapshot(_get)
 
 
@@ -444,7 +444,7 @@ class ClaimRepo:
             keys = ["claim_id", "case_id", "asset_id", "institution_id", "route", "status", "status_reason",
                     "amount_inr", "packet", "packet_gcs_uri", "approved_by", "submitted_at", "due_at",
                     "updated_at", "computed_for_version"]
-            return [dict(zip(keys, r)) for r in rows]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
 
 
@@ -460,7 +460,7 @@ class DisputeRepo:
             rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
             keys = ["dispute_id", "case_id", "kind", "severity", "title", "evidence", "evidence_hash",
                     "recommended_action", "status", "computed_for_version"]
-            return [dict(zip(keys, r)) for r in rows]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
 
 
@@ -471,7 +471,7 @@ class ConsentRepo:
             sql = "SELECT case_id, person_id, status, signed_at FROM Consent WHERE case_id = @case_id"
             rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
             keys = ["case_id", "person_id", "status", "signed_at"]
-            return [dict(zip(keys, r)) for r in rows]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
 
 
@@ -485,5 +485,5 @@ class AuditLogRepo:
             """
             rows = list(snap.execute_sql(sql, params={"case_id": case_id, "lim": limit}, param_types={"case_id": spanner.param_types.STRING, "lim": spanner.param_types.INT64}))
             keys = ["case_id", "seq", "actor", "action", "payload", "prev_hash", "entry_hash", "occurred_at"]
-            return [dict(zip(keys, r)) for r in rows]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)

@@ -9,6 +9,7 @@ Both return identical data structures.
 
 from datetime import datetime
 from typing import Any
+
 from google.cloud import spanner
 from google.cloud.spanner_v1.snapshot import Snapshot
 
@@ -20,7 +21,7 @@ from app.db.client import run_in_snapshot
 def _dict_from_row(keys: list[str], row: tuple) -> dict[str, Any]:
     """Convert Spanner row tuple to dict with string formatting for dates and decimals."""
     d = {}
-    for k, v in zip(keys, row):
+    for k, v in zip(keys, row, strict=False):
         if isinstance(v, datetime):
             d[k] = v.isoformat()
         else:

@@ -1,13 +1,13 @@
 """Integration tests for bi-temporal supersede and graph queries in Cloud Spanner."""
 
-from datetime import datetime, timezone
-from decimal import Decimal
 import time
 import uuid
+from decimal import Decimal
+
 import pytest
 from google.cloud import spanner
 
-from app.db.bitemporal import SENTINEL_MAX_TIMESTAMP, now_utc
+from app.db.bitemporal import now_utc
 from app.db.client import get_db, run_in_snapshot
 from app.db.graph_queries import query_graph_gql, query_graph_sql
 from app.db.repositories import (
@@ -103,18 +103,19 @@ def test_bitemporal_supersede_nominee(test_case_setup):
     heir_id = ctx["heir_id"]
     asset_id = ctx["asset_id"]
 
-    t0 = now_utc()
     NomineeRepo.insert({
         "person_id": heir_id,
         "asset_id": asset_id,
         "case_id": case_id,
         "share_pct": 100.0,
-    }, valid_from=t0)
+    })
 
     time.sleep(0.05)
+    t0 = now_utc()
 
     # Verify at t0
     nominees_t0 = NomineeRepo.list_by_case(case_id, valid_at=t0, known_at=t0)
+
     assert len(nominees_t0) == 1
     assert nominees_t0[0]["share_pct"] == 100.0
 
@@ -168,15 +169,15 @@ def test_bitemporal_supersede_relationship(test_case_setup):
     heir_id = ctx["heir_id"]
     deceased_id = ctx["deceased_id"]
 
-    t0 = now_utc()
     RelationshipRepo.insert({
         "from_id": heir_id,
         "to_id": deceased_id,
         "rel_type": "CHILD",
         "case_id": case_id,
-    }, valid_from=t0)
+    })
 
     time.sleep(0.05)
+    t0 = now_utc()
     t1 = now_utc()
 
     # Query at t0
@@ -216,23 +217,23 @@ def test_graph_gql_and_sql_fallback_identical(test_case_setup):
     deceased_id = ctx["deceased_id"]
     asset_id = ctx["asset_id"]
 
-    t0 = now_utc()
     RelationshipRepo.insert({
         "from_id": heir_id,
         "to_id": deceased_id,
         "rel_type": "CHILD",
         "case_id": case_id,
-    }, valid_from=t0)
+    })
 
     NomineeRepo.insert({
         "person_id": heir_id,
         "asset_id": asset_id,
         "case_id": case_id,
         "share_pct": 100.0,
-    }, valid_from=t0)
+    })
 
     time.sleep(0.05)
     t_now = now_utc()
+
 
     snap_gql = run_in_snapshot(lambda s: query_graph_gql(s, case_id, t_now, t_now))
     snap_sql = run_in_snapshot(lambda s: query_graph_sql(s, case_id, t_now, t_now))

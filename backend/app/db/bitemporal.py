@@ -8,17 +8,18 @@ Close the old row (recorded_to = now, valid_to = effective date) and insert a ne
 Timestamps are generated in the application (UTC, microsecond precision).
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+
 from google.cloud import spanner
 from google.cloud.spanner_v1.transaction import Transaction
 
-SENTINEL_MAX_TIMESTAMP = datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+SENTINEL_MAX_TIMESTAMP = datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)
 
 
 def now_utc() -> datetime:
     """Return current UTC datetime with microsecond precision."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def as_of_clause(

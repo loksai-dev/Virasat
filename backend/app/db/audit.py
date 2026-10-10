@@ -1,10 +1,11 @@
 """AuditLog hash-chain and ChangeLog recording utilities."""
 
-from datetime import datetime
 import hashlib
 import json
-from typing import Any
 import uuid
+from datetime import datetime
+from typing import Any
+
 from google.cloud import spanner
 from google.cloud.spanner_v1.transaction import Transaction
 
@@ -65,8 +66,9 @@ def append_audit_entry(
 
     insert_sql = """
     INSERT INTO AuditLog (case_id, seq, actor, action, payload, prev_hash, entry_hash, occurred_at)
-    VALUES (@case_id, @seq, @actor, @action, JSON @payload, @prev_hash, @entry_hash, @occurred_at)
+    VALUES (@case_id, @seq, @actor, @action, PARSE_JSON(@payload), @prev_hash, @entry_hash, @occurred_at)
     """
+
     transaction.execute_update(
         insert_sql,
         params={

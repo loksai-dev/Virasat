@@ -120,7 +120,8 @@ def run_smoke_test() -> None:
             "to_id": deceased_id,
             "rel_type": "CHILD",
             "case_id": test_id,
-        }, actor="smoke_test", valid_from=t0)
+        }, actor="smoke_test")
+
         logger.info("Inserted Relationship edge: %s CHILD of %s", heir_id, deceased_id)
 
         # Step 5: Create Nominee edge (Arjun is 100% nominee for Asset)
@@ -129,15 +130,17 @@ def run_smoke_test() -> None:
             "asset_id": asset_id,
             "case_id": test_id,
             "share_pct": 100.0,
-        }, actor="smoke_test", valid_from=t0)
+        }, actor="smoke_test")
         logger.info("Inserted Nominee edge: Arjun -> 100.0%% share for %s", asset_id)
 
-        # Small delay to ensure timestamp progression
+        # Capture t0 immediately after initial graph state is established
         time.sleep(0.05)
+        t0 = now_utc()
 
         # Step 6: Execute GQL query at t0
         logger.info("Executing GQL snapshot at t0...")
         snap_t0 = run_in_snapshot(lambda snap: query_graph_gql(snap, test_id, valid_at=t0, known_at=t0))
+
 
         assert len(snap_t0["people"]) == 2, f"Expected 2 people, got {len(snap_t0['people'])}"
         assert len(snap_t0["assets"]) == 1, f"Expected 1 asset, got {len(snap_t0['assets'])}"

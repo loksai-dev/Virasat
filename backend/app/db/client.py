@@ -1,9 +1,10 @@
 """Spanner Client and Transaction Helpers for Virasat."""
 
-from contextlib import contextmanager
 import logging
-from typing import Callable, TypeVar
-from google.cloud import spanner
+from collections.abc import Callable
+from contextlib import contextmanager
+from typing import TypeVar
+
 from google.cloud.spanner_v1.snapshot import Snapshot
 from google.cloud.spanner_v1.transaction import Transaction
 
@@ -23,19 +24,20 @@ def get_db():
 
 @contextmanager
 def snapshot_context():
-    """Context manager yielding a read-only snapshot."""
+    """Context manager yielding a multi-use read-only snapshot."""
     db = get_db()
-    with db.snapshot() as snapshot:
+    with db.snapshot(multi_use=True) as snapshot:
         yield snapshot
 
 
-def run_in_snapshot(func: Callable[[Snapshot], T]) -> T:
+
+def run_in_snapshot[T](func: Callable[[Snapshot], T]) -> T:
     """Execute callable inside a read-only snapshot."""
     with snapshot_context() as snapshot:
         return func(snapshot)
 
 
-def run_in_transaction(func: Callable[[Transaction], T]) -> T:
+def run_in_transaction[T](func: Callable[[Transaction], T]) -> T:
     """Execute callable inside a read-write transaction with automatic retry on Aborted.
 
     Spanner's database.run_in_transaction automatically handles Aborted exceptions
