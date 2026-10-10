@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect width="120" height="120" rx="24" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" />
+
+  <!-- Logo Mark (Abstract V Family Graph with Time Arc) -->
+  <g transform="translate(12.0, 12.0) scale(0.8000)">
+    <!-- Time Horizon Arc (Bi-temporal) -->
+    <path  d="M 18,65 A 46,46 0 1,1 102,65" fill="none" stroke="#0EA5E9" stroke-width="2.5" stroke-dasharray="4 4" stroke-opacity="0.75" />
+    <circle cx="18" cy="65" r="2.5" fill="#0EA5E9" opacity="0.8" />
+    <circle cx="102" cy="65" r="2.5" fill="#0EA5E9" opacity="0.8" />
+
+    <!-- Left Branch (V leg) -->
+    <path  d="M 60,94 C 54,78 36,54 26,32" fill="none" stroke="#14B8A6" stroke-width="4.5" stroke-linecap="round" />
+    
+    <!-- Right Branch (V leg) -->
+    <path  d="M 60,94 C 66,78 84,54 94,32" fill="none" stroke="#14B8A6" stroke-width="4.5" stroke-linecap="round" />
+
+    <!-- Connecting Inner Line (Generational bridge) -->
+    <path d="M 44,60 C 52,66 68,66 76,60" fill="none" stroke="#C9A227" stroke-width="2" stroke-dasharray="3 3" opacity="0.7" />
+
+    <!-- Left Heir Node (Teal) -->
+    <g >
+      <circle cx="26" cy="32" r="9" fill="#14B8A6" />
+      <circle cx="26" cy="32" r="5" fill="#FFFFFF" />
+    </g>
+
+    <!-- Right Heir Node (Teal) -->
+    <g >
+      <circle cx="94" cy="32" r="9" fill="#14B8A6" />
+      <circle cx="94" cy="32" r="5" fill="#FFFFFF" />
+    </g>
+
+    <!-- Root Deceased / Ancestor Node (Gold) -->
+    <g >
+      <circle cx="60" cy="94" r="11" fill="#C9A227" />
+      <circle cx="60" cy="94" r="6" fill="#FFFFFF" />
+    </g>
+  </g>
+
+</svg>

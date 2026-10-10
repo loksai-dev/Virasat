@@ -62,3 +62,11 @@ Error envelope: {error:{code, message, request_id}}
 
 ## The two demo cases (full data is in prompt P5)
 Sharma (VR-2026-0142): Ramesh Sharma, Hyderabad, intestate, 12 assets, net estate 2.84 Cr, disputed claimant Vikram. Mehta (VR-2026-0187): Anil Mehta, Pune, registered will, 8 assets, net 1.678 Cr, clean.
+
+## Chosen models
+- Gemini Flash: `gemini-2.5-flash` (fast extraction, summarization, routing)
+- Gemini Pro: `gemini-2.5-pro` (complex legal reasoning, dispute evaluation, citation verification)
+- Text Embedding: `text-embedding-005` (dimension: 768, semantic document & clause retrieval)
+- Vertex AI Location: `us-central1` (verified live with all 3 models working via `google-genai` SDK in Vertex AI mode)
+- Main GCP Region: `asia-south1` (Spanner, Cloud Storage, Cloud Run, Artifact Registry)
+

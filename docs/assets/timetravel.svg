@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 260" width="880" height="260">
+  <defs>
+    <filter id="sliderGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <style>
+    @keyframes moveSlider {
+      0%, 45% { transform: translateX(0px); }
+      55%, 100% { transform: translateX(360px); }
+    }
+    @keyframes stateA {
+      0%, 45% { opacity: 1; }
+      55%, 100% { opacity: 0; }
+    }
+    @keyframes stateB {
+      0%, 45% { opacity: 0; }
+      55%, 100% { opacity: 1; }
+    }
+    .slider-handle {
+      animation: moveSlider 6s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+    }
+    .state-a {
+      animation: stateA 6s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+    }
+    .state-b {
+      animation: stateB 6s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .slider-handle, .state-a, .state-b { animation: none; }
+      .state-b { opacity: 1; }
+    }
+  </style>
+
+  <rect width="880" height="260" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" />
+
+  <text x="40" y="40" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#0B1F3A">BI-TEMPORAL KNOWLEDGE GRAPH: TIME-TRAVEL DEMO</text>
+  <text x="40" y="60" font-family="-apple-system, sans-serif" font-size="11" fill="#64748B">Valid Time (when event happened in reality) vs. Transaction Time (when Virasat recorded it)</text>
+
+  <!-- Timeline Track -->
+  <g transform="translate(140, 90)">
+    <line x1="0" y1="20" x2="600" y2="20" stroke="#E2E8F0" stroke-width="6" stroke-linecap="round" />
+    <circle cx="0" cy="20" r="7" fill="#14B8A6" />
+    <circle cx="360" cy="20" r="7" fill="#C9A227" />
+    <circle cx="600" cy="20" r="7" fill="#E2E8F0" />
+
+    <text x="-40" y="45" font-family="-apple-system, sans-serif" font-size="11" font-weight="600" fill="#0B1F3A">2021-04-12</text>
+    <text x="-45" y="60" font-family="-apple-system, sans-serif" font-size="9" fill="#64748B">Nominee registered</text>
+
+    <text x="320" y="45" font-family="-apple-system, sans-serif" font-size="11" font-weight="600" fill="#0B1F3A">2024-08-19</text>
+    <text x="315" y="60" font-family="-apple-system, sans-serif" font-size="9" fill="#64748B">Codicil / Amendment</text>
+
+    <!-- Animated Slider Thumb -->
+    <g class="slider-handle">
+      <circle cx="0" cy="20" r="14" fill="#14B8A6" filter="url(#sliderGlow)" />
+      <circle cx="0" cy="20" r="6" fill="#FFFFFF" />
+      <rect x="-35" y="-22" width="70" height="20" rx="4" fill="#0F172A" />
+      <text x="-25" y="-8" font-family="-apple-system, sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">AS-OF READ</text>
+    </g>
+  </g>
+
+  <!-- Live Edge Card State at Target Time -->
+  <g transform="translate(140, 185)">
+    <rect width="600" height="52" rx="10" fill="#F7F5F0" stroke="#E2E8F0" stroke-width="1.5" />
+    
+    <!-- State A (Past: Sunita 100%) -->
+    <g class="state-a">
+      <circle cx="25" cy="26" r="6" fill="#14B8A6" />
+      <text x="42" y="24" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#0B1F3A">Asset: HDFC Mutual Fund (₹45,00,000)</text>
+      <text x="42" y="40" font-family="-apple-system, sans-serif" font-size="11" fill="#14B8A6">Active Edge: Nominee → Sunita Sharma (100% Share)</text>
+      <rect x="470" y="14" width="115" height="24" rx="6" fill="#14B8A6" fill-opacity="0.15" />
+      <text x="480" y="30" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#14B8A6">IMMUTABLE RECORD</text>
+    </g>
+
+    <!-- State B (Present: Sunita 50% + Vikram 50%) -->
+    <g class="state-b">
+      <circle cx="25" cy="26" r="6" fill="#C9A227" />
+      <text x="42" y="24" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#0B1F3A">Asset: HDFC Mutual Fund (₹45,00,000)</text>
+      <text x="42" y="40" font-family="-apple-system, sans-serif" font-size="11" fill="#C9A227">Amended Edge: Nominee → Sunita (50%) • Vikram (50%)</text>
+      <rect x="470" y="14" width="115" height="24" rx="6" fill="#C9A227" fill-opacity="0.15" />
+      <text x="480" y="30" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#C9A227">CLOSED &amp; REPLACED</text>
+    </g>
+  </g>
+</svg>

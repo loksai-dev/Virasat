@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 270" width="1000" height="270">
+  <defs>
+    <filter id="dotGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <style>
+    @keyframes pulseStep {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+    .pipe-line {
+      stroke-dasharray: 6 6;
+      animation: dashMove 12s linear infinite;
+    }
+    @keyframes dashMove {
+      to { stroke-dashoffset: -120; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pipe-line { animation: none; }
+      circle.travel-dot { display: none; }
+    }
+  </style>
+
+  <rect width="1000" height="270" rx="16" fill="#081528" stroke="#1E3A5F" stroke-width="1.5" />
+
+  <!-- Connecting Backbone Rail -->
+  <path d="M 145,140 L 380,140 L 615,140 L 850,140" fill="none" stroke="#1E3A5F" stroke-width="4" stroke-linecap="round" />
+  <path class="pipe-line" d="M 145,140 L 380,140 L 615,140 L 850,140" fill="none" stroke="#14B8A6" stroke-width="2.5" stroke-linecap="round" opacity="0.8" />
+
+  <!-- Traveling Energy Bead -->
+  <circle class="travel-dot" r="7" fill="#EAB308" filter="url(#dotGlow)">
+    <animateMotion path="M 145,140 L 380,140 L 615,140 L 850,140" dur="6s" repeatCount="indefinite" />
+  </circle>
+
+  <!-- Step Cards -->
+  
+    <!-- Step 01 Card -->
+    <g transform="translate(40, 70)">
+      <rect width="210" height="150" rx="14" fill="#0E2442" stroke="#1E3A5F" stroke-width="1.5" />
+      <rect x="16" y="16" width="36" height="24" rx="6" fill="#14B8A6" fill-opacity="0.15" />
+      <text x="25" y="33" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#2DD4BF">01</text>
+      <text x="16" y="66" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#F8FAFC">Upload Certificate</text>
+      <text x="16" y="90" font-family="-apple-system, sans-serif" font-size="11" fill="#94A3B8">Death certificate &amp; will ingestion</text>
+      <rect x="16" y="114" width="178" height="20" rx="4" fill="#13315C" />
+      <text x="24" y="128" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#2DD4BF">Document AI + OCR</text>
+    </g>
+    <!-- Step 02 Card -->
+    <g transform="translate(275, 70)">
+      <rect width="210" height="150" rx="14" fill="#0E2442" stroke="#1E3A5F" stroke-width="1.5" />
+      <rect x="16" y="16" width="36" height="24" rx="6" fill="#14B8A6" fill-opacity="0.15" />
+      <text x="25" y="33" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#2DD4BF">02</text>
+      <text x="16" y="66" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#F8FAFC">Discover Assets</text>
+      <text x="16" y="90" font-family="-apple-system, sans-serif" font-size="11" fill="#94A3B8">Demats, FDs, insurance, EPF, banks</text>
+      <rect x="16" y="114" width="178" height="20" rx="4" fill="#13315C" />
+      <text x="24" y="128" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#2DD4BF">Multi-Agent Discovery</text>
+    </g>
+    <!-- Step 03 Card -->
+    <g transform="translate(510, 70)">
+      <rect width="210" height="150" rx="14" fill="#0E2442" stroke="#1E3A5F" stroke-width="1.5" />
+      <rect x="16" y="16" width="36" height="24" rx="6" fill="#14B8A6" fill-opacity="0.15" />
+      <text x="25" y="33" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#2DD4BF">03</text>
+      <text x="16" y="66" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#F8FAFC">Verify Legal Heirs</text>
+      <text x="16" y="90" font-family="-apple-system, sans-serif" font-size="11" fill="#94A3B8">Succession law rule-engine graph</text>
+      <rect x="16" y="114" width="178" height="20" rx="4" fill="#13315C" />
+      <text x="24" y="128" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#2DD4BF">Spanner Bi-Temporal Graph</text>
+    </g>
+    <!-- Step 04 Card -->
+    <g transform="translate(745, 70)">
+      <rect width="210" height="150" rx="14" fill="#0E2442" stroke="#1E3A5F" stroke-width="1.5" />
+      <rect x="16" y="16" width="36" height="24" rx="6" fill="#14B8A6" fill-opacity="0.15" />
+      <text x="25" y="33" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#2DD4BF">04</text>
+      <text x="16" y="66" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#F8FAFC">Prepare &amp; Track</text>
+      <text x="16" y="90" font-family="-apple-system, sans-serif" font-size="11" fill="#94A3B8">Ready claim packets &amp; dispute flags</text>
+      <rect x="16" y="114" width="178" height="20" rx="4" fill="#13315C" />
+      <text x="24" y="128" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#2DD4BF">Verified Institutions</text>
+    </g>
+</svg>
