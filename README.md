@@ -1,55 +1,8 @@
-<div align="center">
+# React + TypeScript + Vite
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/banner-light.svg">
-  <img alt="Virasat Banner" src="docs/assets/banner-light.svg" width="100%">
-</picture>
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-# Virasat
-
-**Autonomous AI Estate Settlement Platform • Every legacy, settled with care.**
-
-[![Google Cloud](https://img.shields.io/badge/Google_Cloud-Enterprise-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)](https://cloud.google.com/)
-[![Gemini 2.5](https://img.shields.io/badge/Vertex_AI-Gemini_2.5_Flash_%26_Pro-8E75B2?style=for-the-badge&logo=google-gemini&logoColor=white)](https://cloud.google.com/vertex-ai)
-[![Spanner Graph](https://img.shields.io/badge/Cloud_Spanner-Property_Graph_ISO_GQL-34A853?style=for-the-badge&logo=google-cloud&logoColor=white)](https://cloud.google.com/spanner)
-[![Cloud Run](https://img.shields.io/badge/Cloud_Run-FastAPI_Runtime-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)](https://cloud.google.com/run)
-[![Firebase](https://img.shields.io/badge/Firebase-Hosting_%26_Auth-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
-[![React 18](https://img.shields.io/badge/Frontend-React_18_%2B_Vite_%2B_TS-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![License](https://img.shields.io/badge/License-TODO-gray?style=for-the-badge)](#team-license-and-acknowledgements)
-
-<br/>
-
-[Live Demo [TODO]](https://virasat-511210.web.app) • [3-Minute Video Walkthrough [TODO]](https://youtube.com) • [Pitch Deck PDF [TODO]](docs/pitch-deck.pdf)
-
-<br/>
-
-**[Try in 60s](#try-it-in-60-seconds) • [Problem](#the-problem) • [Features](#what-virasat-does) • [How It Works](#how-it-works) • [Architecture](#architecture) • [GraphRAG](#why-graphrag-and-bi-temporal-modelling) • [Tech Stack](#tech-stack) • [Judging Map](#judging-criteria-mapping) • [Evaluation](#evaluation) • [Getting Started](#getting-started) • [API](#api-overview) • [Limitations](#responsible-use-and-limitations)**
-
-</div>
-
----
-
-## Try It in 60 Seconds
-
-A frictionless evaluation path designed specifically for hackathon judges:
-
-1. **Launch Demo Experience:** Navigate to `/demo` in the application.
-2. **Select Persona:** Choose **Judge Mode** (or Family / Legal Heirs).
-3. **Choose Benchmark Scenario:**
-   - **Sharma Estate (`VR-2026-0142`):** Hindu Succession Act (Intestate), 12 assets across bank accounts, demats, mutual funds, insurance policies, EPF, and real estate (Net Estate: ₹2.84 Cr), with a contested claim by brother Vikram.
-   - **Mehta Estate (`VR-2026-0187`):** Registered testamentary will, 8 assets (Net Estate: ₹1.678 Cr), clean distribution with an appointed executor.
-4. **Trigger Agent Pipeline:** Click **Launch Autonomous Agents** and watch live real-time Server-Sent Events (SSE) execute intake, asset discovery, succession graph verification, and fraud analysis.
-5. **Inspect the Knowledge Graph:** Open **Family & Heirs** (`/case/VR-2026-0142/family`) to view the interactive entity graph.
-6. **Time-Travel:** Drag the **Time-Travel Slider** to inspect valid-time vs. transaction-time edge mutations across the family tree.
-7. **Interactive Re-run:** Modify a nominee percentage or toggle a disputed relationship, then observe the deterministic rules engine instantly recalculate legal shares with version incrementation.
-8. **Document Intake Toggle:** Switch to **"Start from documents"** to test raw PDF death certificate ingestion and Cloud Document AI extraction.
-
----
-
-## The Problem
-
-When a family member passes away in India, grief is immediately compounded by bureaucratic paralysis:
+Currently, two official plugins are available:
 
 - **Massive Unclaimed Wealth:** Indian financial institutions hold over `[TODO: cited statistic - RBI/SEBI/IEPFA reports ₹1.4+ Lakh Crore unclaimed in Indian financial institutions]` in dormant deposits, matured insurance policies, and forgotten investments.
 - **Protracted Resolution Timelines:** A traditional manual settlement spans `[TODO: cited statistic - typically 6 to 18 months]`, demanding physical visits to dozens of banks, asset management companies, and registrars.
@@ -287,156 +240,19 @@ cd virasat
 
 To bootstrap or verify the Google Cloud environment (`virasat-511210`), execute:
 
-```powershell
-# Authenticate Application Default Credentials
-gcloud auth application-default login
-gcloud auth application-default set-quota-project virasat-511210
-
-# Verify cloud resources (Spanner, Vertex AI, Bucket, Service Account)
-python scripts/verify_cloud.py
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}
 ```
 
-### 3. Backend Setup
+See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
 
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-# Configure environment variables
-cp .env.example .env
-
-# Run FastAPI development server
-uvicorn main:app --reload --port 8000
-```
-
-### 4. Frontend Setup
-
-```bash
-cd ../frontend
-npm install
-npm run dev
-```
-
-Open `http://localhost:5173` in your browser.
-
----
-
-## API Overview
-
-<details>
-<summary><b>Click to expand full REST and SSE API contract</b></summary>
-
-All API routes are served under `/api` and authenticate via `Authorization: Bearer <Firebase ID token>`:
-
-```text
-SESSIONS      POST   /api/demo/session             Initialize demo session (Sharma / Mehta)
-              POST   /api/cases/{id}/reset         Reset case to seed benchmark state
-CASES         GET    /api/cases/{id}               Get full case details
-              GET    /api/cases/{id}/overview      Aggregated overview metrics & next actions
-PEOPLE        GET    /api/cases/{id}/people        List family members
-              POST   /api/cases/{id}/people        Add family member
-              PATCH  /api/people/{pid}             Update person record
-              DELETE /api/people/{pid}             Remove person record
-RELATIONS     POST   /api/cases/{id}/relationships Add relationship edge
-              PATCH  /api/relationships/{rid}     Update relationship edge
-              DELETE /api/relationships/{rid}     Remove relationship edge
-ASSETS        GET    /api/cases/{id}/assets        List discovered assets
-              POST   /api/cases/{id}/assets        Register new asset
-              PATCH  /api/assets/{aid}             Update asset attributes
-              PUT    /api/assets/{aid}/nominees    Update bi-temporal nominee shares
-WILL          GET    /api/cases/{id}/will          Get registered will details
-              PUT    /api/cases/{id}/will          Update will clauses & executor
-DOCUMENTS     GET    /api/cases/{id}/documents     List uploaded documents
-              POST   /api/cases/{id}/documents     Upload document (PDF / image multipart)
-GRAPH         GET    /api/cases/{id}/graph         Fetch graph (supports ?valid_at=&known_at=)
-SHARES        GET    /api/cases/{id}/shares        Compute shares (?scenario=current|with_will|no_will)
-HISTORY       GET    /api/cases/{id}/history       Retrieve bi-temporal audit trail for entity
-RUNS          POST   /api/cases/{id}/run           Trigger multi-agent pipeline execution
-              GET    /api/cases/{id}/events        Stream real-time SSE agent events
-WHATIF        POST   /api/cases/{id}/whatif        Evaluate speculative succession scenarios
-CLAIMS        GET    /api/cases/{id}/claims        List institution claims & dossiers
-              GET    /api/claims/{cid}/packet      Download generated claim packet PDF
-              POST   /api/claims/{cid}/approve     Approve packet for filing
-DISPUTES      GET    /api/cases/{id}/disputes      List flagged disputes & conflicts
-              POST   /api/disputes/{did}/resolve   Record dispute resolution notes
-CHAT          POST   /api/chat                     Stream conversational answers (SSE, en|hi|te)
-AUDIT         GET    /api/cases/{id}/audit         Get cryptographic hash-chain audit log
-              GET    /api/cases/{id}/audit/verify  Verify hash integrity
-CONSENT       GET    /api/cases/{id}/consent       Get family consent status
-              PUT    /api/cases/{id}/consent       Update heir e-consent
-INSTITUTION   GET    /api/institution/dashboard    Institution-side verification dashboard
-HEALTH        GET    /health                       Service health & readiness probe
-```
-
-</details>
-
----
-
-## Project Structure
-
-```text
-Virasat/
-├── backend/                  # FastAPI Python backend (Python 3.12)
-│   ├── .env.example          # Template with GCP, Spanner, Vertex AI parameters
-│   ├── .env                  # Local runtime environment (gitignored)
-│   └── main.py               # Application entrypoint
-├── frontend/                 # React 18 + Vite + TypeScript application
-│   ├── src/
-│   │   ├── pages/            # Page components (Overview, Family, Shares, Claims, etc.)
-│   │   ├── components/       # Reusable UI component library & design system
-│   │   ├── layouts/          # CaseLayout, PublicLayout, InstitutionLayout
-│   │   └── store/            # State management (Zustand & TanStack Query)
-│   └── package.json          # Frontend dependencies
-├── docs/                     # Architectural documentation & assets
-│   ├── PROJECT_CONTEXT.md    # Source-of-truth specification & rules
-│   ├── CLOUD_SETUP.md        # GCP infrastructure inventory & teardown guide
-│   ├── README_TODO.md        # Submission checklist of remaining user placeholders
-│   └── assets/               # Validated SVG diagrams, banners, GIF, and screens
-│       ├── banner-light.svg  # Animated SVG banner (1200x360)
-│       ├── banner-dark.svg   # Dark-mode animated SVG banner
-│       ├── flow.svg          # Animated 4-step settlement flow
-│       ├── agents.svg        # Animated multi-agent architecture
-│       ├── timetravel.svg    # Animated bi-temporal timeline slider
-│       ├── demo.gif          # 960px interactive platform demonstration (< 8 MB)
-│       └── screens/          # High-resolution screenshots of key application views
-├── scripts/                  # Reproducible automation & validation scripts
-│   ├── bootstrap_gcp.sh      # Idempotent cloud provisioning script
-│   ├── verify_cloud.py       # Comprehensive GCP environment verification
-│   ├── schema.sql            # GoogleSQL DDL for Spanner & VirasatGraph
-│   ├── build_readme_assets.py# Vector outline & SVG asset generator
-│   ├── validate_svgs.py      # Strict security & file-size SVG validator
-│   └── render_previews.py    # Headless Chromium SVG preview renderer
-└── README.md                 # Primary project documentation
-```
-
----
-
-## Responsible Use and Limitations
-
-- **Synthetic Data Exclusively:** All profiles, estate inventories, PAN cards, death certificates, and bank account numbers in demonstrations and test suites are entirely synthetic.
-- **Guidance, Not Legal Advice:** Virasat provides procedural guidance, automated document compilation, and mathematical succession breakdowns. It is not a substitute for a licensed advocate or legal practitioner.
-- **Statutory Rules Require Local Legal Review:** Succession law rules implemented in the platform represent standard statutory provisions under the Hindu Succession Act, 1956 and Indian Succession Act, 1925; specific state amendments and customary variations must be verified.
-- **Simulated Institution Interfaces:** Banking, insurance, and registrar interfaces in the demonstration environment simulate real-world API responses and tracking systems.
-- **Citation Guardrails:** Large language models can make mistakes. Every legal clause, statutory fraction, and institutional requirement surfaced by Virasat includes an explicit source citation.
-
----
-
-## Roadmap
-
-- **Account Aggregator (AA) Integration:** Direct consent-driven retrieval of real-time account balances and statements via Sahamati-compliant Account Aggregator protocols.
-- **DigiLocker Integration:** Native cryptographic verification of Aadhaar, PAN, and state civil registry death certificates.
-- **Additional Succession Regimes:** Expansion to Muslim Personal Law (Shariat), Christian succession, Parsi succession, and tribal customary laws.
-- **Voice Agent in 10+ Indian Languages:** End-to-end voice interface powered by Gemini Live audio streaming to assist digitally underserved citizens.
-- **Institution API Marketplace:** Bi-directional settlement APIs allowing financial institutions to ingest verified Virasat claim packets directly into core banking systems.
-
----
-
-## Team, License, and Acknowledgements
-
-- **Built For:** Google Cloud AI Builder Cup 2026 (JAPAC Hackathon, BFSI Theme).
-- **Team Members:** `[TODO: List Team Members & Roles - see docs/README_TODO.md]`
-- **License:** `[TODO: Choose License, e.g. Apache 2.0 or MIT]`
-
-Special thanks to the Google Cloud JAPAC and Vertex AI product teams for the documentation, tooling, and infrastructure that made this project possible.
