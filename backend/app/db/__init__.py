@@ -12,12 +12,16 @@ from app.db.bitemporal import (
 from app.db.client import get_db, run_in_snapshot, run_in_transaction, snapshot_context
 from app.db.graph_queries import query_graph_gql, query_graph_sql, snapshot
 from app.db.repositories import (
+    AgentEventRepo,
+    AgentRunRepo,
     AssetRepo,
     AuditLogRepo,
     CasesRepo,
+    ChatMessageRepo,
     ClaimRepo,
     ConsentRepo,
     DisputeRepo,
+    DocRequestRepo,
     DocumentRepo,
     InstitutionRepo,
     NomineeRepo,
@@ -30,12 +34,16 @@ from app.db.repositories import (
 
 __all__ = [
     "SENTINEL_MAX_TIMESTAMP",
+    "AgentEventRepo",
+    "AgentRunRepo",
     "AssetRepo",
     "AuditLogRepo",
     "CasesRepo",
+    "ChatMessageRepo",
     "ClaimRepo",
     "ConsentRepo",
     "DisputeRepo",
+    "DocRequestRepo",
     "DocumentRepo",
     "InstitutionRepo",
     "NomineeRepo",

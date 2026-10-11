@@ -29,3 +29,6 @@ pnpm-debug.log*
 !.vscode/extensions.json
 .idea
 *.sw?
+
+# Generated Test Packets
+backend/app/seed/packets/*.pdf

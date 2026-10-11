@@ -403,21 +403,50 @@ class ClaimAdvanceResponse(BaseModel):
 
 
 # ---------------------------------------------------------
+# ---------------------------------------------------------
 # Disputes Schemas
 # ---------------------------------------------------------
 class DisputeResponse(BaseModel):
-    id: str
+    dispute_id: str
+    id: str | None = None
     case_id: str
-    claimant_id: str
-    reason: str
-    severity: Literal["low", "medium", "high", "critical"]
-    status: str = "open"
-    evidence: list[str] = []
+    kind: str
+    severity: str
+    title: str
+    evidence: dict[str, Any] | list[Any] = {}
+    evidence_hash: str = ""
+    recommended_action: str = ""
+    status: str = "OPEN"
+    computed_for_version: int | None = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.id:
+            self.id = self.dispute_id
 
 
 class DisputeResolveRequest(BaseModel):
-    resolution: str
-    justification: str
+    action: Literal["RESOLVE", "ESCALATE", "REQUEST_DOCS"] | None = None
+    note: str | None = None
+    resolution: str | None = None
+    justification: str | None = None
+
+
+class DocRequestResponse(BaseModel):
+    request_id: str
+    case_id: str
+    claim_id: str | None = None
+    doc_name: str
+    status: str
+    created_at: str
+
+
+class DisputesOverviewResponse(BaseModel):
+    case_id: str
+    disputes: list[DisputeResponse]
+    risk_score: float
+    risk_label: str
+    contributing_factors: list[str] = []
+    timeline: list[dict[str, Any]] = []
 
 
 # ---------------------------------------------------------

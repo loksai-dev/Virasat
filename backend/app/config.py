@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     AGENT_FALLBACK_TO_CACHE: bool = True
     SESSION_TTL_HOURS: int = 24
     RATE_LIMIT_PER_MIN: int = 60
+    RATE_LIMIT_CHAT_PER_MIN: int = 30
+    MAX_CHAT_MESSAGE_LENGTH: int = 2000
+    MAX_CHAT_HISTORY_TURNS: int = 10
+    ENABLE_MODEL_ARMOR: bool = False
     LOCAL_DEV_UID: str = ""
     USE_SQL_FALLBACK: bool = False
     PORT: int = 8000

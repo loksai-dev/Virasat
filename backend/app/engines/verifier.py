@@ -81,8 +81,9 @@ class AnswerVerifier:
         self,
         context: GraphRAGContext | dict[str, Any],
         engine_output: dict[str, Any] | None = None,
+        tool_data: dict[str, Any] | None = None,
     ) -> list[float]:
-        """Gather all numbers, values, and percentages present in graph_facts and engine_output."""
+        """Gather all numbers, values, and percentages present in graph_facts, engine_output, and tool_data."""
         allowed: list[float] = []
 
         # From graph facts
@@ -107,8 +108,26 @@ class AnswerVerifier:
             if "estate_value_inr" in engine_output:
                 allowed.append(float(engine_output["estate_value_inr"]))
 
-        # Common structural integers allowed in legal steps
-        allowed.extend([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 14.0, 15.0, 30.0, 60.0, 90.0, 100.0])
+        # From tool_data (e.g. asset balance, nominee shares, checklist counts)
+        if tool_data:
+            tool_str = str(tool_data)
+            for _, val in extract_numbers_and_percentages(tool_str):
+                allowed.append(val)
+            for n in re.findall(r"\b\d+(?:,\d+)*(?:\.\d+)?\b", tool_str):
+                v = normalize_numeric_str(n)
+                if v is not None and v > 0:
+                    allowed.append(v)
+
+        # Derived fractional calculations (e.g., 50% split of a 9,20,000 balance is 4,60,000)
+        base_monetary_vals = [v for v in allowed if v >= 1000]
+        fraction_multipliers = [0.1, 0.125, 0.2, 0.25, 1/3, 0.333, 0.3333, 0.4, 0.5, 2/3, 0.666, 0.6667, 0.75]
+        for base in base_monetary_vals:
+            for frac in fraction_multipliers:
+                allowed.append(round(base * frac, 2))
+                allowed.append(float(int(base * frac)))
+
+        # Common structural integers and statutory fraction percentages allowed in legal steps
+        allowed.extend([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 12.5, 14.0, 15.0, 20.0, 25.0, 30.0, 33.3, 33.33, 45.0, 50.0, 60.0, 75.0, 90.0, 100.0])
         return allowed
 
     def verify(
@@ -117,6 +136,7 @@ class AnswerVerifier:
         answer_dict: dict[str, Any],
         context: GraphRAGContext | dict[str, Any],
         engine_output: dict[str, Any] | None = None,
+        tool_data: dict[str, Any] | None = None,
     ) -> tuple[bool, str, dict[str, Any]]:
         """Verify grounding of citations, rupee amounts, and percentages.
 
@@ -158,7 +178,7 @@ class AnswerVerifier:
                 return False, msg, answer_dict
 
         # 3. Check rupee amounts and percentages
-        grounded_numbers = self.collect_allowed_grounded_numbers(context, engine_output)
+        grounded_numbers = self.collect_allowed_grounded_numbers(context, engine_output, tool_data)
         found_numbers = extract_numbers_and_percentages(full_text)
 
         for raw_str, val in found_numbers:

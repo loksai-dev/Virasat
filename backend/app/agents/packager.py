@@ -48,8 +48,8 @@ class ClaimsPackagerAgent(BaseAgent):
         emitter.emit(
             event_type="tool_call",
             agent=self.name,
-            tool="generate_claims_for_case",
-            args={"case_id": case_id},
+            message="Executing tool generate_claims_for_case",
+            payload={"tool": "generate_claims_for_case", "args": {"case_id": case_id}},
         )
 
         claims = generate_claims_for_case(case_id, actor=self.name)

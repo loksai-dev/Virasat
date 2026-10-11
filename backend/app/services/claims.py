@@ -42,6 +42,7 @@ from app.db.repositories import (
     ClaimRepo,
     ConsentRepo,
     DisputeRepo,
+    DocRequestRepo,
     DocumentRepo,
     InstitutionRepo,
     NomineeRepo,
@@ -581,6 +582,7 @@ def generate_claims_for_case(
     consent_rows = ConsentRepo.list_by_case(case_id)
     disputes = DisputeRepo.list_by_case(case_id)
     will_record = WillRepo.get_by_case(case_id)
+    doc_requests = DocRequestRepo.list_by_case(case_id)
 
     # Find death certificate if any
     death_doc = next((d for d in docs if "DEATH" in str(d.get("doc_type", "")).upper() or "death" in str(d.get("original_name", "")).lower()), None)
@@ -594,17 +596,17 @@ def generate_claims_for_case(
     # Map disputes by asset_id
     disputed_asset_ids = set()
     for disp in disputes:
-        if disp.get("status") not in ("RESOLVED", "CLOSED"):
+        if disp.get("status") not in ("RESOLVED", "CLOSED", "DISMISSED"):
             # Check if dispute mentions specific asset in evidence
             ev = disp.get("evidence") or {}
             ev_str = json.dumps(ev).lower() if isinstance(ev, (dict, list)) else str(ev).lower()
             for a in assets:
                 aid = a["asset_id"]
-                if aid.lower() in ev_str or a.get("account_ref_masked", "xxx") in ev_str:
+                if aid.lower() in ev_str or a.get("account_ref_masked", "xxx") in ev_str or ("hdfc" in aid.lower() and "hdfc" in ev_str):
                     disputed_asset_ids.add(aid)
 
-    # In Sharma scenario, HDFC savings is contested by fraudulent claimant Vikram
-    if case.get("seed_key") == "sharma":
+    # If no dispute rows have been created yet, seed fallback for Sharma
+    if not disputes and case.get("seed_key") == "sharma":
         for a in assets:
             if "hdfc" in str(a.get("label", "")).lower() or "8891" in str(a.get("account_ref_masked", "")):
                 disputed_asset_ids.add(a["asset_id"])
@@ -679,6 +681,28 @@ def generate_claims_for_case(
             will_status=will_record.get("status") if will_record else None,
         )
 
+        # Check for outstanding DocRequest items for this claim/case
+        claim_id_key = f"clm-{case_id[:8]}-{aid.replace('a-', '')[:16]}"
+        active_requests = [
+            req for req in doc_requests
+            if (
+                not req.get("claim_id")
+                or req.get("claim_id") == claim_id_key
+                or str(req.get("claim_id")) in claim_id_key
+                or claim_id_key in str(req.get("claim_id"))
+            )
+            and req.get("status") == "PENDING"
+        ]
+        for req in active_requests:
+            checklist.append({
+                "doc_type": "DOC_REQUEST",
+                "name": req.get("doc_name", "Requested Supporting Document"),
+                "supplied_by": "USER",
+                "status": "REQUESTED",
+                "doc_id": None,
+                "request_id": req.get("request_id"),
+            })
+
         # 5. Signers & Consent
         signers = resolve_eligible_signers(claimants, consent_rows)
 
@@ -687,6 +711,9 @@ def generate_claims_for_case(
         if aid in disputed_asset_ids:
             status = "NEEDS_ACTION"
             status_reason = "Blocked by active dispute: Contested nomination / conflicting claimant submissions."
+        elif active_requests:
+            status = "NEEDS_ACTION"
+            status_reason = f"Pending requested documentation: {active_requests[0].get('doc_name')}"
         elif not is_complete:
             missing_items = [c["name"] for c in checklist if c["status"] != "PRESENT" and c["supplied_by"] == "USER"]
             status = "NEEDS_ACTION"

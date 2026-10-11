@@ -600,6 +600,19 @@ class NomineeRepo:
             return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
 
+    @staticmethod
+    def list_all_records_by_case(case_id: str) -> list[dict[str, Any]]:
+        """Return all historical and active nominee records for a case without as-of filtering."""
+        def _list(snap: Snapshot):
+            sql = """
+            SELECT n.person_id, n.asset_id, n.case_id, n.share_pct, n.valid_from, n.valid_to, n.recorded_from, n.recorded_to
+            FROM Nominee n WHERE n.case_id = @case_id
+            """
+            rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
+            keys = ["person_id", "asset_id", "case_id", "share_pct", "valid_from", "valid_to", "recorded_from", "recorded_to"]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
+        return run_in_snapshot(_list)
+
 
 # ---------------------------------------------------------------------------
 # Owns Repository (Bi-temporal)
@@ -1030,6 +1043,240 @@ class DisputeRepo:
             rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
             keys = ["dispute_id", "case_id", "kind", "severity", "title", "evidence", "evidence_hash",
                     "recommended_action", "status", "computed_for_version"]
+            res = []
+            for r in rows:
+                d = dict(zip(keys, r, strict=False))
+                if isinstance(d.get("evidence"), str):
+                    try:
+                        d["evidence"] = json.loads(d["evidence"])
+                    except Exception:
+                        pass
+                res.append(d)
+            return res
+        return run_in_snapshot(_list)
+
+    @staticmethod
+    def get(dispute_id: str) -> dict[str, Any] | None:
+        def _get(snap: Snapshot):
+            sql = """
+            SELECT dispute_id, case_id, kind, severity, title, evidence, evidence_hash,
+                   recommended_action, status, computed_for_version
+            FROM Dispute WHERE dispute_id = @did
+            """
+            rows = list(snap.execute_sql(sql, params={"did": dispute_id}, param_types={"did": spanner.param_types.STRING}))
+            if not rows:
+                return None
+            keys = ["dispute_id", "case_id", "kind", "severity", "title", "evidence", "evidence_hash",
+                    "recommended_action", "status", "computed_for_version"]
+            d = dict(zip(keys, rows[0], strict=False))
+            if isinstance(d.get("evidence"), str):
+                try:
+                    d["evidence"] = json.loads(d["evidence"])
+                except Exception:
+                    pass
+            return d
+        return run_in_snapshot(_get)
+
+    @staticmethod
+    def save_disputes(
+        case_id: str,
+        new_disputes: list[dict[str, Any]],
+        computed_for_version: int,
+        actor: str = "system",
+    ) -> list[dict[str, Any]]:
+        """Persist disputes for a case version, preserving RESOLVED/ESCALATED state if evidence_hash matches."""
+        now = now_utc()
+        final_disputes: list[dict[str, Any]] = []
+
+        def _tx(tx: Transaction):
+            sql = """
+            SELECT dispute_id, case_id, kind, severity, title, evidence, evidence_hash,
+                   recommended_action, status, computed_for_version
+            FROM Dispute WHERE case_id = @case_id
+            """
+            rows = list(tx.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
+            keys = ["dispute_id", "case_id", "kind", "severity", "title", "evidence", "evidence_hash",
+                    "recommended_action", "status", "computed_for_version"]
+            existing_by_hash: dict[str, dict[str, Any]] = {}
+            existing_ids: set[str] = set()
+            for r in rows:
+                ed = dict(zip(keys, r, strict=False))
+                existing_ids.add(ed["dispute_id"])
+                ehash = ed.get("evidence_hash")
+                if ehash:
+                    existing_by_hash[ehash] = ed
+
+            current_ids: set[str] = set()
+            values = []
+            columns = [
+                "dispute_id", "case_id", "kind", "severity", "title",
+                "evidence", "evidence_hash", "recommended_action", "status",
+                "computed_for_version",
+            ]
+
+            for d in new_disputes:
+                ehash = d.get("evidence_hash", "")
+                existing = existing_by_hash.get(ehash)
+
+                # Re-run rule: never resurrect a RESOLVED dispute unless evidence_hash changed
+                if existing:
+                    did = existing["dispute_id"]
+                    status = existing.get("status", "OPEN")
+                else:
+                    did = d.get("dispute_id") or f"disp-{uuid.uuid4().hex[:8]}"
+                    status = d.get("status", "OPEN")
+
+                current_ids.add(did)
+                ev = d.get("evidence", {})
+                ev_json = json.dumps(ev) if isinstance(ev, (dict, list)) else str(ev)
+
+                row_dict = {
+                    "dispute_id": did,
+                    "case_id": case_id,
+                    "kind": d.get("kind", "CONFLICTING_CLAIM"),
+                    "severity": d.get("severity", "MEDIUM"),
+                    "title": d.get("title", "Estate Dispute"),
+                    "evidence": ev,
+                    "evidence_hash": ehash,
+                    "recommended_action": d.get("recommended_action", ""),
+                    "status": status,
+                    "computed_for_version": computed_for_version,
+                }
+                final_disputes.append(row_dict)
+
+                values.append([
+                    did,
+                    case_id,
+                    row_dict["kind"],
+                    row_dict["severity"],
+                    row_dict["title"],
+                    ev_json,
+                    ehash,
+                    row_dict["recommended_action"],
+                    status,
+                    computed_for_version,
+                ])
+
+            # Prune stale disputes whose underlying basis has been removed
+            # (e.g. deleting Vikram's affidavit removes document-based findings)
+            stale_ids = existing_ids - current_ids
+            if stale_ids:
+                keys_to_del = spanner.KeySet(keys=[[sid] for sid in stale_ids])
+                tx.delete("Dispute", keys_to_del)
+
+            if values:
+                tx.insert_or_update(table="Dispute", columns=columns, values=values)
+            append_audit_entry(tx, case_id, actor, "disputes_refreshed", {"count": len(values), "version": computed_for_version})
+
+        run_in_transaction(_tx)
+        return final_disputes
+
+    @staticmethod
+    def update_status(
+        dispute_id: str,
+        status: str,
+        action: str,
+        note: str,
+        actor: str = "system",
+    ) -> dict[str, Any] | None:
+        """Update dispute status and log audit."""
+        now = now_utc()
+        result_holder: list[dict[str, Any]] = []
+
+        def _tx(tx: Transaction):
+            sql = """
+            SELECT dispute_id, case_id, kind, severity, title, evidence, evidence_hash,
+                   recommended_action, status, computed_for_version
+            FROM Dispute WHERE dispute_id = @did
+            """
+            rows = list(tx.execute_sql(sql, params={"did": dispute_id}, param_types={"did": spanner.param_types.STRING}))
+            if not rows:
+                return
+            keys = ["dispute_id", "case_id", "kind", "severity", "title", "evidence", "evidence_hash",
+                    "recommended_action", "status", "computed_for_version"]
+            cur = dict(zip(keys, rows[0], strict=False))
+            case_id = cur["case_id"]
+
+            ver = bump_case_version(tx, case_id)
+            sql_upd = """
+            UPDATE Dispute
+            SET status = @status, computed_for_version = @ver
+            WHERE dispute_id = @did
+            """
+            tx.execute_update(
+                sql_upd,
+                params={"status": status, "ver": ver, "did": dispute_id},
+                param_types={"status": spanner.param_types.STRING, "ver": spanner.param_types.INT64, "did": spanner.param_types.STRING},
+            )
+
+            record_change(tx, case_id, "Dispute", dispute_id, "status", cur.get("status"), status, actor, now, now)
+            append_audit_entry(tx, case_id, actor, "dispute_resolved", {
+                "dispute_id": dispute_id,
+                "action": action,
+                "from_status": cur.get("status"),
+                "to_status": status,
+                "note": note,
+            })
+
+            cur["status"] = status
+            cur["computed_for_version"] = ver
+            if isinstance(cur.get("evidence"), str):
+                try:
+                    cur["evidence"] = json.loads(cur["evidence"])
+                except Exception:
+                    pass
+            result_holder.append(cur)
+
+        run_in_transaction(_tx)
+        return result_holder[0] if result_holder else None
+
+
+class DocRequestRepo:
+    @staticmethod
+    def create(data: dict[str, Any], actor: str = "system") -> dict[str, Any]:
+        case_id = data["case_id"]
+        req_id = data.get("request_id") or f"req-{uuid.uuid4().hex[:8]}"
+        now = now_utc()
+        created_at = data.get("created_at") or now
+
+        def _tx(tx: Transaction):
+            ver = bump_case_version(tx, case_id)
+            tx.insert_or_update(
+                table="DocRequest",
+                columns=["request_id", "case_id", "claim_id", "doc_name", "status", "created_at"],
+                values=[[req_id, case_id, data.get("claim_id"), data["doc_name"], data.get("status", "PENDING"), created_at]],
+            )
+            append_audit_entry(tx, case_id, actor, "doc_request_created", {
+                "request_id": req_id,
+                "doc_name": data["doc_name"],
+                "claim_id": data.get("claim_id"),
+            })
+
+        run_in_transaction(_tx)
+        return {
+            "request_id": req_id,
+            "case_id": case_id,
+            "claim_id": data.get("claim_id"),
+            "doc_name": data["doc_name"],
+            "status": data.get("status", "PENDING"),
+            "created_at": created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at),
+        }
+
+    @staticmethod
+    def list_by_case(case_id: str) -> list[dict[str, Any]]:
+        def _list(snap: Snapshot):
+            sql = "SELECT request_id, case_id, claim_id, doc_name, status, created_at FROM DocRequest WHERE case_id = @case_id ORDER BY created_at"
+            rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
+            keys = ["request_id", "case_id", "claim_id", "doc_name", "status", "created_at"]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
+        return run_in_snapshot(_list)
+
+    @staticmethod
+    def list_by_claim(claim_id: str) -> list[dict[str, Any]]:
+        def _list(snap: Snapshot):
+            sql = "SELECT request_id, case_id, claim_id, doc_name, status, created_at FROM DocRequest WHERE claim_id = @claim_id ORDER BY created_at"
+            rows = list(snap.execute_sql(sql, params={"claim_id": claim_id}, param_types={"claim_id": spanner.param_types.STRING}))
+            keys = ["request_id", "case_id", "claim_id", "doc_name", "status", "created_at"]
             return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
 
@@ -1430,6 +1677,18 @@ class DocumentRepo:
         run_in_transaction(_tx)
         return ver_container["version"]
 
+    @staticmethod
+    def delete(doc_id_or_case_id: str, doc_id: str | None = None, actor: str = "system") -> int:
+        """Soft delete a document by doc_id (supports delete(doc_id) and delete(case_id, doc_id))."""
+        if doc_id is None:
+            target_did = doc_id_or_case_id
+            doc = DocumentRepo.get(target_did)
+            if not doc:
+                return 0
+            cid = doc["case_id"]
+            return DocumentRepo.soft_delete(cid, target_did, actor=actor)
+        return DocumentRepo.soft_delete(doc_id_or_case_id, doc_id, actor=actor)
+
 
 # ---------------------------------------------------------------------------
 # AgentRun Repository
@@ -1648,5 +1907,101 @@ class AgentEventRepo:
                 results.append(d)
             return results
         return run_in_snapshot(_list)
+
+
+# ---------------------------------------------------------------------------
+# ChatMessage Repository
+# ---------------------------------------------------------------------------
+class ChatMessageRepo:
+    @staticmethod
+    def append_message(
+        case_id: str,
+        role: str,
+        content: str,
+        citations: list[Any] | None = None,
+        entity_links: list[dict[str, Any]] | None = None,
+    ) -> int:
+        now = now_utc()
+        seq_holder: list[int] = []
+
+        def _tx(tx: Transaction):
+            sql_seq = "SELECT COALESCE(MAX(seq), 0) + 1 FROM ChatMessage WHERE case_id = @case_id"
+            rows = list(tx.execute_sql(
+                sql_seq,
+                params={"case_id": case_id},
+                param_types={"case_id": spanner.param_types.STRING},
+            ))
+            next_seq = int(rows[0][0]) if rows and rows[0][0] is not None else 1
+            seq_holder.append(next_seq)
+
+            sql_ins = """
+            INSERT INTO ChatMessage (case_id, seq, role, content, citations, entity_links, ts)
+            VALUES (@case_id, @seq, @role, @content, PARSE_JSON(@citations), PARSE_JSON(@entity_links), @ts)
+            """
+            params = {
+                "case_id": case_id,
+                "seq": next_seq,
+                "role": role,
+                "content": content,
+                "citations": json.dumps(citations or [], default=str),
+                "entity_links": json.dumps(entity_links or [], default=str),
+                "ts": now,
+            }
+            param_types = {
+                "case_id": spanner.param_types.STRING,
+                "seq": spanner.param_types.INT64,
+                "role": spanner.param_types.STRING,
+                "content": spanner.param_types.STRING,
+                "citations": spanner.param_types.STRING,
+                "entity_links": spanner.param_types.STRING,
+                "ts": spanner.param_types.TIMESTAMP,
+            }
+            tx.execute_update(sql_ins, params=params, param_types=param_types)
+
+        run_in_transaction(_tx)
+        return seq_holder[0] if seq_holder else 1
+
+    @staticmethod
+    def list_by_case(case_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        def _list(snap: Snapshot):
+            sql = """
+            SELECT case_id, seq, role, content, citations, entity_links, ts
+            FROM ChatMessage
+            WHERE case_id = @case_id
+            ORDER BY seq ASC
+            """
+            rows = list(snap.execute_sql(
+                sql,
+                params={"case_id": case_id},
+                param_types={"case_id": spanner.param_types.STRING},
+            ))
+            keys = ["case_id", "seq", "role", "content", "citations", "entity_links", "ts"]
+            results = []
+            for r in rows:
+                d = dict(zip(keys, r, strict=False))
+                for json_col in ("citations", "entity_links"):
+                    if isinstance(d.get(json_col), str):
+                        try:
+                            d[json_col] = json.loads(d[json_col])
+                        except Exception:
+                            d[json_col] = []
+                    elif d.get(json_col) is None:
+                        d[json_col] = []
+                if isinstance(d["ts"], datetime):
+                    d["ts"] = d["ts"].isoformat()
+                results.append(d)
+            if len(results) > limit:
+                results = results[-limit:]
+            return results
+
+        return run_in_snapshot(_list)
+
+    @staticmethod
+    def delete_by_case(case_id: str) -> None:
+        def _tx(tx: Transaction):
+            sql = "DELETE FROM ChatMessage WHERE case_id = @case_id"
+            tx.execute_update(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING})
+        run_in_transaction(_tx)
+
 
 

@@ -17,7 +17,7 @@ from app.agents.discovery import AssetDiscoveryAgent
 from app.agents.eligibility import LegalEligibilityAgent
 from app.agents.intake import IntakeAgent
 from app.agents.packager import ClaimsPackagerAgent
-from app.agents.placeholders import FraudDisputeAgent
+from app.agents.fraud_dispute import FraudDisputeAgent
 from app.db.repositories import AgentRunRepo, AssetRepo, PersonRepo
 from app.services.events import EventEmitter
 
@@ -96,7 +96,7 @@ class PipelineOrchestrator:
             heirs_count = len([p for p in final_people if p.get("role") != "DECEASED"])
             assets_located = len(final_assets)
             claims_prepared = len(final_assets)
-            disputes_found = 1 if any("fraud" in str(p.get("notes", "")).lower() for p in final_people) else 0
+            disputes_found = fraud_res.get("disputes_count", 0) if isinstance(fraud_res, dict) else (1 if any("fraud" in str(p.get("notes", "")).lower() for p in final_people) else 0)
 
             summary = {
                 "assets_located": assets_located,
