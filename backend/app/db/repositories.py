@@ -937,3 +937,198 @@ class ShareResultRepo:
             if values:
                 tx.insert_or_update(table="ShareResult", columns=columns, values=values)
         run_in_transaction(_tx)
+
+
+# ---------------------------------------------------------------------------
+# Document Repository
+# ---------------------------------------------------------------------------
+class DocumentRepo:
+    @staticmethod
+    def list_by_case(case_id: str) -> list[dict[str, Any]]:
+        def _list(snap: Snapshot):
+            sql = """
+            SELECT doc_id, case_id, gcs_uri, doc_type, original_name,
+                   extracted, field_confidence, status, verified, degraded,
+                   uploaded_at, deleted
+            FROM Document WHERE case_id = @case_id AND deleted = FALSE
+            ORDER BY uploaded_at ASC, doc_id ASC
+            """
+            rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
+            keys = [
+                "doc_id", "case_id", "gcs_uri", "doc_type", "original_name",
+                "extracted", "field_confidence", "status", "verified", "degraded",
+                "uploaded_at", "deleted",
+            ]
+            results = []
+            for r in rows:
+                d = dict(zip(keys, r, strict=False))
+                if isinstance(d["extracted"], str):
+                    try:
+                        d["extracted"] = json.loads(d["extracted"])
+                    except Exception:
+                        pass
+                if isinstance(d["field_confidence"], str):
+                    try:
+                        d["field_confidence"] = json.loads(d["field_confidence"])
+                    except Exception:
+                        pass
+                results.append(d)
+            return results
+        return run_in_snapshot(_list)
+
+    @staticmethod
+    def get(doc_id: str) -> dict[str, Any] | None:
+        def _get(snap: Snapshot):
+            sql = """
+            SELECT doc_id, case_id, gcs_uri, doc_type, original_name,
+                   extracted, field_confidence, status, verified, degraded,
+                   uploaded_at, deleted
+            FROM Document WHERE doc_id = @doc_id
+            """
+            rows = list(snap.execute_sql(sql, params={"doc_id": doc_id}, param_types={"doc_id": spanner.param_types.STRING}))
+            if not rows:
+                return None
+            keys = [
+                "doc_id", "case_id", "gcs_uri", "doc_type", "original_name",
+                "extracted", "field_confidence", "status", "verified", "degraded",
+                "uploaded_at", "deleted",
+            ]
+            d = dict(zip(keys, rows[0], strict=False))
+            if isinstance(d["extracted"], str):
+                try:
+                    d["extracted"] = json.loads(d["extracted"])
+                except Exception:
+                    pass
+            if isinstance(d["field_confidence"], str):
+                try:
+                    d["field_confidence"] = json.loads(d["field_confidence"])
+                except Exception:
+                    pass
+            return d
+        return run_in_snapshot(_get)
+
+    @staticmethod
+    def count_by_case(case_id: str) -> int:
+        def _count(snap: Snapshot):
+            sql = "SELECT COUNT(1) FROM Document WHERE case_id = @case_id AND deleted = FALSE"
+            rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
+            return rows[0][0] if rows else 0
+        return run_in_snapshot(_count)
+
+    @staticmethod
+    def create(data: dict[str, Any], actor: str = "system") -> dict[str, Any]:
+        case_id = data["case_id"]
+        doc_id = data.get("doc_id", str(uuid.uuid4()))
+        now = now_utc()
+        row = {
+            "doc_id": doc_id,
+            "case_id": case_id,
+            "gcs_uri": data["gcs_uri"],
+            "doc_type": data.get("doc_type"),
+            "original_name": data.get("original_name", ""),
+            "extracted": json.dumps(data.get("extracted", {})) if isinstance(data.get("extracted"), (dict, list)) else (data.get("extracted") or "{}"),
+            "field_confidence": json.dumps(data.get("field_confidence", {})) if isinstance(data.get("field_confidence"), (dict, list)) else (data.get("field_confidence") or "{}"),
+            "status": data.get("status", "PENDING"),
+            "verified": data.get("verified", False),
+            "degraded": data.get("degraded", False),
+            "uploaded_at": data.get("uploaded_at", now),
+            "deleted": False,
+        }
+
+        def _tx(tx: Transaction):
+            bump_case_version(tx, case_id)
+            sql = """
+            INSERT INTO Document (doc_id, case_id, gcs_uri, doc_type, original_name, extracted, field_confidence, status, verified, degraded, uploaded_at, deleted)
+            VALUES (@doc_id, @case_id, @gcs_uri, @doc_type, @original_name, PARSE_JSON(@extracted), PARSE_JSON(@field_confidence), @status, @verified, @degraded, @uploaded_at, @deleted)
+            """
+            tx.execute_update(sql, params=row, param_types={
+                "doc_id": spanner.param_types.STRING,
+                "case_id": spanner.param_types.STRING,
+                "gcs_uri": spanner.param_types.STRING,
+                "doc_type": spanner.param_types.STRING,
+                "original_name": spanner.param_types.STRING,
+                "extracted": spanner.param_types.STRING,
+                "field_confidence": spanner.param_types.STRING,
+                "status": spanner.param_types.STRING,
+                "verified": spanner.param_types.BOOL,
+                "degraded": spanner.param_types.BOOL,
+                "uploaded_at": spanner.param_types.TIMESTAMP,
+                "deleted": spanner.param_types.BOOL,
+            })
+            record_change(tx, case_id, "Document", doc_id, "uploaded", None, row["original_name"], actor, now, now)
+            append_audit_entry(tx, case_id, actor, "document_uploaded", {"doc_id": doc_id, "filename": row["original_name"]})
+
+        run_in_transaction(_tx)
+        res = dict(row)
+        res["extracted"] = data.get("extracted", {})
+        res["field_confidence"] = data.get("field_confidence", {})
+        return res
+
+    @staticmethod
+    def update(case_id: str, doc_id: str, updates: dict[str, Any], actor: str = "system") -> tuple[dict[str, Any], int]:
+        now = now_utc()
+        result_container: dict[str, Any] = {}
+
+        def _tx(tx: Transaction):
+            ver = bump_case_version(tx, case_id)
+            sql = """
+            SELECT doc_id, case_id, gcs_uri, doc_type, original_name, extracted, field_confidence, status, verified, degraded, uploaded_at, deleted
+            FROM Document WHERE doc_id = @doc_id AND case_id = @case_id
+            """
+            rows = list(tx.execute_sql(sql, params={"doc_id": doc_id, "case_id": case_id}, param_types={"doc_id": spanner.param_types.STRING, "case_id": spanner.param_types.STRING}))
+            if not rows:
+                raise ValueError(f"Document {doc_id} not found in case {case_id}")
+            keys = ["doc_id", "case_id", "gcs_uri", "doc_type", "original_name", "extracted", "field_confidence", "status", "verified", "degraded", "uploaded_at", "deleted"]
+            current = dict(zip(keys, rows[0], strict=False))
+
+            set_clauses = []
+            params: dict[str, Any] = {"doc_id": doc_id, "case_id": case_id}
+            param_types: dict[str, Any] = {"doc_id": spanner.param_types.STRING, "case_id": spanner.param_types.STRING}
+
+            for k, new_v in updates.items():
+                if k in ("extracted", "field_confidence"):
+                    json_str = json.dumps(new_v) if isinstance(new_v, (dict, list)) else new_v
+                    set_clauses.append(f"{k} = PARSE_JSON(@{k})")
+                    params[k] = json_str
+                    param_types[k] = spanner.param_types.STRING
+                    current[k] = new_v
+                elif k in current and current[k] != new_v:
+                    set_clauses.append(f"{k} = @{k}")
+                    params[k] = new_v
+                    if isinstance(new_v, str):
+                        param_types[k] = spanner.param_types.STRING
+                    elif isinstance(new_v, bool):
+                        param_types[k] = spanner.param_types.BOOL
+                    record_change(tx, case_id, "Document", doc_id, k, str(current[k]), str(new_v), actor, now, now)
+                    current[k] = new_v
+
+            if set_clauses:
+                update_sql = f"UPDATE Document SET {', '.join(set_clauses)} WHERE doc_id = @doc_id AND case_id = @case_id"
+                tx.execute_update(update_sql, params=params, param_types=param_types)
+                append_audit_entry(tx, case_id, actor, "document_updated", {"doc_id": doc_id, "fields": list(updates.keys())})
+
+            result_container["document"] = current
+            result_container["version"] = ver
+
+        run_in_transaction(_tx)
+        return result_container["document"], result_container["version"]
+
+    @staticmethod
+    def soft_delete(case_id: str, doc_id: str, actor: str = "system") -> int:
+        now = now_utc()
+        ver_container: dict[str, Any] = {}
+
+        def _tx(tx: Transaction):
+            ver = bump_case_version(tx, case_id)
+            tx.execute_update(
+                "UPDATE Document SET deleted = TRUE WHERE doc_id = @did AND case_id = @cid",
+                params={"did": doc_id, "cid": case_id},
+                param_types={"did": spanner.param_types.STRING, "cid": spanner.param_types.STRING},
+            )
+            record_change(tx, case_id, "Document", doc_id, "deleted", "false", "true", actor, now, now)
+            append_audit_entry(tx, case_id, actor, "document_deleted", {"doc_id": doc_id})
+            ver_container["version"] = ver
+
+        run_in_transaction(_tx)
+        return ver_container["version"]
+

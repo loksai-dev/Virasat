@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------
@@ -221,16 +221,29 @@ class WillResponse(BaseModel):
 class DocumentUpdateRequest(BaseModel):
     doc_type: str | None = None
     status: str | None = None
+    extracted: dict[str, Any] | None = None
+    field_confidence: dict[str, float] | None = None
+    verified: bool | None = None
+
+    model_config = {"extra": "allow"}
 
 
 class DocumentResponse(BaseModel):
     id: str
+    doc_id: str | None = None
     case_id: str
     filename: str
-    doc_type: str
+    doc_type: str | None = None
     storage_uri: str
-    status: str = "uploaded"
+    status: str = "PENDING"
     extracted_metadata: dict[str, Any] = {}
+    extracted: dict[str, Any] = {}
+    field_confidence: dict[str, float] = {}
+    verified: bool = False
+    degraded: bool = False
+    download_url: str | None = None
+    signed_url: str | None = None
+    uploaded_at: str | None = None
 
 
 # ---------------------------------------------------------
@@ -461,9 +474,51 @@ class ImpactResponse(BaseModel):
     synthetic: bool = True
 
 
-# ---------------------------------------------------------
-# Admin Schemas
-# ---------------------------------------------------------
 class AdminCleanupResponse(BaseModel):
     deleted_sessions: int
     status: str
+
+
+# ---------------------------------------------------------
+# GraphRAG & Chat Schemas
+# ---------------------------------------------------------
+class ClauseItem(BaseModel):
+    clause_id: str
+    source: str
+    section: str = ""
+    topic: str = ""
+    text: str
+    official_url: str = ""
+
+
+class GraphFactItem(BaseModel):
+    fact_id: str
+    text: str
+
+
+class EntityLinkItem(BaseModel):
+    entity_id: str
+    entity_type: str
+    name: str
+    score: float
+
+
+class GraphRAGContext(BaseModel):
+    clauses: list[dict[str, Any]] = Field(default_factory=list)
+    graph_facts: list[dict[str, Any]] = Field(default_factory=list)
+    entity_links: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class GraphRAGAnswer(BaseModel):
+    answer: str
+    steps: list[str] = Field(default_factory=list)
+    citations: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.9, ge=0.0, le=1.0)
+    needs_lawyer: bool = Field(default=False)
+    degraded: bool = Field(default=False)
+
+
+class ChatRequest(BaseModel):
+    case_id: str
+    message: str
+    language: str = "en"

@@ -91,7 +91,7 @@ CREATE INDEX DocRequestByCase ON DocRequest(case_id);
 
 CREATE TABLE LegalClause (
   clause_id STRING(64) NOT NULL, source STRING(128) NOT NULL, section STRING(64), jurisdiction STRING(32),
-  topic STRING(64), text STRING(MAX) NOT NULL, needs_review BOOL NOT NULL DEFAULT (TRUE),
+  topic STRING(128), text STRING(MAX) NOT NULL, needs_review BOOL NOT NULL DEFAULT (TRUE),
   official_url STRING(512), embedding ARRAY<FLOAT32>(vector_length=>768)
 ) PRIMARY KEY (clause_id);
 
