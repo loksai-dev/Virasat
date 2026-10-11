@@ -334,6 +334,7 @@ def generate_claim_packet_pdf(
         rightMargin=54,
         topMargin=54,
         bottomMargin=54,
+        pageCompression=0,
     )
 
     styles = getSampleStyleSheet()

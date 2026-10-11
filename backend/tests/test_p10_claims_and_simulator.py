@@ -279,5 +279,15 @@ def test_claim_board_and_packet_endpoints():
     assert resp_pdf.content.startswith(b"%PDF"), "Response content must be a valid PDF"
 
     # Check that PDF contains the running footer
-    pdf_text = resp_pdf.content.decode("latin1", errors="ignore")
-    assert "Prepared by Virasat, guidance only" in pdf_text
+    import re
+    import zlib
+    raw_bytes = resp_pdf.content
+    pdf_text = raw_bytes.decode("latin1", errors="ignore")
+    decompressed = ""
+    for m in re.finditer(b"stream\r?\n(.*?)\r?\nendstream", raw_bytes, re.DOTALL):
+        try:
+            decompressed += zlib.decompress(m.group(1)).decode("latin1", errors="ignore") + "\n"
+        except Exception:
+            pass
+    full_text = pdf_text + "\n" + decompressed
+    assert "Prepared by Virasat, guidance only" in full_text
