@@ -834,13 +834,23 @@ class ClaimRepo:
                 cid = c.get("claim_id") or (existing_by_asset.get(aid, {}).get("claim_id")) or str(uuid.uuid4())
                 existing = existing_by_asset.get(aid)
 
-                # Preserve state if already submitted or later
-                if existing and existing.get("status") in ("SUBMITTED", "IN_REVIEW", "SETTLED"):
-                    final_status = existing["status"]
-                    final_reason = existing.get("status_reason")
-                    final_app_by = existing.get("approved_by")
-                    final_sub_at = existing.get("submitted_at")
-                    final_due_at = existing.get("due_at")
+                # Preserve state if already approved, submitted or settled unless invalidated
+                if existing and existing.get("status") in ("APPROVED", "SUBMITTED", "IN_REVIEW", "SETTLED"):
+                    if c.get("status") == "NEEDS_ACTION":
+                        # Invalidated by case changes (e.g. active dispute opened, missing prerequisite doc)
+                        final_status = "NEEDS_ACTION"
+                        final_reason = f"Claim invalidated by case changes: {c.get('status_reason') or 'Prerequisite data modified'}"
+                        final_app_by = None
+                        final_sub_at = None
+                        final_due_at = None
+                        record_change(tx, case_id, "Claim", cid, "status", existing.get("status"), "NEEDS_ACTION", actor, now, now)
+                        append_audit_entry(tx, case_id, actor, "claim_invalidated", {"claim_id": cid, "asset_id": aid, "reason": final_reason})
+                    else:
+                        final_status = existing["status"]
+                        final_reason = existing.get("status_reason")
+                        final_app_by = existing.get("approved_by")
+                        final_sub_at = existing.get("submitted_at")
+                        final_due_at = existing.get("due_at")
                 else:
                     final_status = c.get("status", "READY")
                     final_reason = c.get("status_reason")
@@ -1325,6 +1335,71 @@ class ConsentRepo:
         )
 
 
+class ChangeLogRepo:
+    @staticmethod
+    def list_by_case(case_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        def _read(snap: Snapshot) -> list[dict[str, Any]]:
+            sql = """
+            SELECT change_id, case_id, entity, entity_id, field, old_value, new_value, valid_at, recorded_at, actor
+            FROM ChangeLog
+            WHERE case_id = @case_id
+            ORDER BY recorded_at DESC
+            LIMIT @limit
+            """
+            rows = list(snap.execute_sql(
+                sql,
+                params={"case_id": case_id, "limit": limit},
+                param_types={"case_id": spanner.param_types.STRING, "limit": spanner.param_types.INT64},
+            ))
+            results = []
+            for r in rows:
+                results.append({
+                    "change_id": r[0],
+                    "case_id": r[1],
+                    "entity": r[2],
+                    "entity_id": r[3],
+                    "field": r[4],
+                    "old_value": r[5],
+                    "new_value": r[6],
+                    "valid_at": r[7].isoformat() if hasattr(r[7], "isoformat") else str(r[7]),
+                    "recorded_at": r[8].isoformat() if hasattr(r[8], "isoformat") else str(r[8]),
+                    "actor": r[9],
+                })
+            return results
+        return run_in_snapshot(_read)
+
+    @staticmethod
+    def list_since(case_id: str, since_ts: datetime) -> list[dict[str, Any]]:
+        def _read(snap: Snapshot) -> list[dict[str, Any]]:
+            sql = """
+            SELECT change_id, case_id, entity, entity_id, field, old_value, new_value, valid_at, recorded_at, actor
+            FROM ChangeLog
+            WHERE case_id = @case_id AND recorded_at >= @since_ts
+            ORDER BY recorded_at ASC
+            """
+            rows = list(snap.execute_sql(
+                sql,
+                params={"case_id": case_id, "since_ts": since_ts},
+                param_types={"case_id": spanner.param_types.STRING, "since_ts": spanner.param_types.TIMESTAMP},
+            ))
+            results = []
+            for r in rows:
+                results.append({
+                    "change_id": r[0],
+                    "case_id": r[1],
+                    "entity": r[2],
+                    "entity_id": r[3],
+                    "field": r[4],
+                    "old_value": r[5],
+                    "new_value": r[6],
+                    "valid_at": r[7].isoformat() if hasattr(r[7], "isoformat") else str(r[7]),
+                    "recorded_at": r[8].isoformat() if hasattr(r[8], "isoformat") else str(r[8]),
+                    "actor": r[9],
+                })
+            return results
+        return run_in_snapshot(_read)
+
+
 class HistoryRepo:
     @staticmethod
     def get_history(case_id: str, entity: str | None = None, entity_id: str | None = None) -> list[dict[str, Any]]:
@@ -1444,6 +1519,10 @@ class ShareResultRepo:
         return run_in_snapshot(_list)
 
     list_by_case_scenario = list_by_case_and_scenario
+
+    @staticmethod
+    def list_by_case(case_id: str, scenario: str = "current") -> list[dict[str, Any]]:
+        return ShareResultRepo.list_by_case_and_scenario(case_id, scenario)
 
     @staticmethod
     def save_shares(

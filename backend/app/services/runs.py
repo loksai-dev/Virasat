@@ -30,7 +30,13 @@ class RunManager:
         # Keep track of active asyncio background tasks per case_id
         self._active_tasks: dict[str, asyncio.Task] = {}
 
-    def start_case_run(self, case_id: str, trigger_kind: str = "manual") -> tuple[dict[str, Any], bool]:
+    def start_case_run(
+        self,
+        case_id: str,
+        trigger_kind: str = "manual",
+        stages: list[str] | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> tuple[dict[str, Any], bool]:
         """Start a new agent run or return existing active run with rerun_pending flag.
 
         Returns (run_dict, is_new_run).
@@ -42,9 +48,14 @@ class RunManager:
         # Check for currently active run
         active_run = AgentRunRepo.get_active_by_case(case_id)
         if active_run:
+            if active_run.get("case_version") == case.get("data_version", 1):
+                logger.info("Case %s already has active run %s for current version %s.", case_id, active_run["run_id"], active_run.get("case_version"))
+                return active_run, False
             logger.info("Case %s already has active run %s. Setting rerun_pending = True.", case_id, active_run["run_id"])
             AgentRunRepo.set_rerun_pending(active_run["run_id"], pending=True)
             active_run["rerun_pending"] = True
+            from app.services.events import publish_case_event
+            publish_case_event(case_id, "case_stale", {"case_id": case_id, "run_id": active_run["run_id"], "stale": True})
             return active_run, False
 
         # Create new AgentRun
@@ -56,17 +67,27 @@ class RunManager:
         )
         run_id = run_record["run_id"]
 
+        from app.services.events import publish_case_event
+        publish_case_event(case_id, "case_stale", {"case_id": case_id, "run_id": run_id, "stale": True})
+
         # Spawn background execution
-        task = asyncio.create_task(self._execute_run_pipeline(case_id, run_id))
+        task = asyncio.create_task(self._execute_run_pipeline(case_id, run_id, stages=stages, context=context))
         self._active_tasks[case_id] = task
 
         return run_record, True
 
-    async def _execute_run_pipeline(self, case_id: str, run_id: str) -> None:
+    async def _execute_run_pipeline(
+        self,
+        case_id: str,
+        run_id: str,
+        stages: list[str] | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> None:
         """Internal worker executing pipeline and checking for rerun_pending follow-up."""
+        from app.services.events import publish_case_event
         try:
             emitter = EventEmitter(run_id=run_id, case_id=case_id)
-            result = await self.orchestrator.run_pipeline(case_id, run_id, emitter)
+            result = await self.orchestrator.run_pipeline(case_id, run_id, emitter, stages=stages, context=context)
 
             # Check if rerun_pending was requested while this run was in flight
             current_run = AgentRunRepo.get(run_id)
@@ -79,14 +100,16 @@ class RunManager:
                 c = CasesRepo.get(case_id)
                 new_ver = c.get("data_version", 1) if c else 1
                 followup_run = AgentRunRepo.create(case_id=case_id, trigger_kind="rerun", case_version=new_ver)
-                followup_task = asyncio.create_task(self._execute_run_pipeline(case_id, followup_run["run_id"]))
+                followup_task = asyncio.create_task(self._execute_run_pipeline(case_id, followup_run["run_id"], stages=stages, context=context))
                 self._active_tasks[case_id] = followup_task
             else:
                 self._active_tasks.pop(case_id, None)
+                publish_case_event(case_id, "case_fresh", {"case_id": case_id, "run_id": run_id, "stale": False})
 
         except Exception as e:
             logger.error("Unexpected error in _execute_run_pipeline for run %s: %s", run_id, e, exc_info=True)
             self._active_tasks.pop(case_id, None)
+            publish_case_event(case_id, "case_fresh", {"case_id": case_id, "run_id": run_id, "stale": False})
 
     def get_run(self, run_id: str) -> dict[str, Any]:
         """Fetch status and details of an AgentRun."""
@@ -179,6 +202,78 @@ class RunManager:
         finally:
             unsubscribe_case_events(run_id, _on_event)
 
+    async def stream_case_events(
+        self,
+        case_id: str,
+        last_event_id: int | None = None,
+    ) -> AsyncGenerator[str, None]:
+        """Stream SSE events for a case including case_stale, case_fresh, and run events."""
+        event_queue: asyncio.Queue = asyncio.Queue()
+
+        def _on_event(evt_data: dict[str, Any]):
+            event_queue.put_nowait(evt_data)
+
+        subscribe_case_events(case_id, _on_event)
+
+        # Check initial state
+        active_run = AgentRunRepo.get_active_by_case(case_id)
+        is_stale = active_run is not None
+        initial_ev = "case_stale" if is_stale else "case_fresh"
+        yield f"event: {initial_ev}\ndata: {json.dumps({'case_id': case_id, 'stale': is_stale})}\n\n"
+
+        current_seq = last_event_id if last_event_id is not None else 0
+        last_heartbeat_time = datetime.now(UTC)
+
+        try:
+            while True:
+                # 1. Process any events queued from in-memory dispatch
+                while not event_queue.empty():
+                    evt = await event_queue.get()
+                    ev_type = evt.get("event_type", "message")
+                    data = evt.get("data") if "data" in evt else evt
+                    seq = evt.get("seq") or (evt.get("data", {}).get("seq") if isinstance(evt.get("data"), dict) else None)
+                    id_str = f"id: {seq}\n" if seq else ""
+                    yield f"{id_str}event: {ev_type}\ndata: {json.dumps(data)}\n\n"
+
+                # 2. Check active run events from Spanner
+                active_run = AgentRunRepo.get_active_by_case(case_id)
+                if active_run:
+                    rid = active_run["run_id"]
+                    new_events = AgentEventRepo.list_events_after(rid, after_seq=current_seq)
+                    for ev in new_events:
+                        seq = ev["seq"]
+                        if seq > current_seq:
+                            current_seq = seq
+                            ev_type = ev.get("event_type", "agent_message")
+                            data_payload = json.dumps({
+                                "seq": ev["seq"],
+                                "type": ev_type,
+                                "agent": ev.get("agent", ""),
+                                "message": ev.get("message", ""),
+                                "progress": ev.get("progress", 0.0),
+                                "citations": ev.get("citations", []),
+                                "degraded": ev.get("degraded", False),
+                                "payload": ev.get("payload", {}),
+                            })
+                            yield f"id: {seq}\nevent: {ev_type}\ndata: {data_payload}\n\n"
+
+                # 3. Wait with timeout
+                try:
+                    evt = await asyncio.wait_for(event_queue.get(), timeout=0.5)
+                    event_queue.put_nowait(evt)
+                except TimeoutError:
+                    pass
+
+                # 4. Heartbeat check (every 15 s)
+                now = datetime.now(UTC)
+                if (now - last_heartbeat_time).total_seconds() >= 15.0:
+                    yield ": heartbeat\n\n"
+                    last_heartbeat_time = now
+
+        finally:
+            unsubscribe_case_events(case_id, _on_event)
+
 
 # Global singleton instance
 run_manager = RunManager()
+

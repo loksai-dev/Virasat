@@ -37,10 +37,13 @@ async def get_case(
     }
 
 
+from app.services.overview import get_case_overview as fetch_case_overview
+
+
 @router.get("/cases/{id}/overview", response_model=Overview)
 async def get_case_overview(
     id: str,
     uid: str = CurrentUser,
 ):
     """Retrieve full dashboard overview for an estate settlement case."""
-    raise NotImplementedException()
+    return fetch_case_overview(case_id=id, uid=uid)

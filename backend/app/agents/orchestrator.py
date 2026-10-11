@@ -39,9 +39,11 @@ class PipelineOrchestrator:
         case_id: str,
         run_id: str,
         emitter: EventEmitter,
+        stages: list[str] | None = None,
+        context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Execute the multi-agent pipeline from start to completion."""
-        logger.info("Starting pipeline run %s for case %s", run_id, case_id)
+        """Execute the multi-agent pipeline, running all or targeted minimal stages."""
+        logger.info("Starting pipeline run %s for case %s (stages=%s)", run_id, case_id, stages)
 
         # 1. Pipeline Start
         emitter.emit(
@@ -51,44 +53,76 @@ class PipelineOrchestrator:
         )
         AgentRunRepo.update_status(run_id, status="RUNNING")
 
+        stage_set = set(stages) if stages else {"extraction", "discovery", "shares", "claims", "fraud"}
+
         try:
             # 2. Stage 1: IntakeAgent
-            emitter.emit(event_type="progress", progress=0.10, message="Stage 1: Document intake and death verification.")
-            intake_res = await self.intake_agent.execute(
-                case_id=case_id,
-                prompt="Scan case documents, extract unextracted files, and verify death certificate.",
-                emitter=emitter,
-            )
+            if "extraction" in stage_set:
+                emitter.emit(event_type="progress", progress=0.10, message="Stage 1: Document intake and death verification.")
+                await self.intake_agent.execute(
+                    case_id=case_id,
+                    prompt="Scan case documents, extract unextracted files, and verify death certificate.",
+                    emitter=emitter,
+                )
 
             # 3. Stage 2: AssetDiscoveryAgent
-            emitter.emit(event_type="progress", progress=0.35, message="Stage 2: Financial and physical asset discovery.")
-            disc_res = await self.discovery_agent.execute(
-                case_id=case_id,
-                prompt="Discover and reconcile all estate assets from financial statements, passbooks, and deeds.",
-                emitter=emitter,
-            )
+            if "discovery" in stage_set:
+                emitter.emit(event_type="progress", progress=0.35, message="Stage 2: Financial and physical asset discovery.")
+                await self.discovery_agent.execute(
+                    case_id=case_id,
+                    prompt="Discover and reconcile all estate assets from financial statements, passbooks, and deeds.",
+                    emitter=emitter,
+                )
 
             # 4. Stage 3: LegalEligibilityAgent
-            emitter.emit(event_type="progress", progress=0.65, message="Stage 3: Legal succession and statutory share calculation.")
-            elig_res = await self.eligibility_agent.execute(
-                case_id=case_id,
-                prompt="Compute statutory succession shares for all scenarios and generate legal reasoning.",
-                emitter=emitter,
-            )
+            if "shares" in stage_set:
+                emitter.emit(event_type="progress", progress=0.65, message="Stage 3: Legal succession and statutory share calculation.")
+                await self.eligibility_agent.execute(
+                    case_id=case_id,
+                    prompt="Compute statutory succession shares for all scenarios and generate legal reasoning.",
+                    emitter=emitter,
+                )
 
-            # 5. Stage 4: ClaimsPackager and FraudDispute in Parallel
-            emitter.emit(event_type="progress", progress=0.85, message="Stage 4: Claims packaging and fraud detection (parallel).")
-            pack_task = self.packager_agent.execute(
-                case_id=case_id,
-                prompt="Verify institution claim requirements.",
-                emitter=emitter,
-            )
-            fraud_task = self.fraud_agent.execute(
-                case_id=case_id,
-                prompt="Analyze documents for affidavit tampering and disputes.",
-                emitter=emitter,
-            )
-            pack_res, fraud_res = await asyncio.gather(pack_task, fraud_task)
+            # 5. Stage 4: ClaimsPackager and FraudDispute
+            run_pack = any(s in stage_set for s in ("claims", "affected_claims", "routes", "asset_claim"))
+            run_fraud = "fraud" in stage_set
+            pack_res = {}
+            fraud_res = {}
+
+            if run_pack and run_fraud:
+                emitter.emit(event_type="progress", progress=0.85, message="Stage 4: Claims packaging and fraud detection (parallel).")
+                pack_task = self.packager_agent.execute(
+                    case_id=case_id,
+                    prompt="Verify institution claim requirements.",
+                    emitter=emitter,
+                    context=context,
+                )
+                fraud_task = self.fraud_agent.execute(
+                    case_id=case_id,
+                    prompt="Analyze documents for affidavit tampering and disputes.",
+                    emitter=emitter,
+                )
+                pack_res, fraud_res = await asyncio.gather(pack_task, fraud_task)
+            elif run_pack:
+                emitter.emit(event_type="progress", progress=0.85, message="Targeted Stage: Refreshing affected institutional claims.")
+                pack_res = await self.packager_agent.execute(
+                    case_id=case_id,
+                    prompt="Refresh affected institutional claims.",
+                    emitter=emitter,
+                    context=context,
+                )
+            elif run_fraud:
+                emitter.emit(event_type="progress", progress=0.85, message="Targeted Stage: Scanning estate vulnerabilities and fraud.")
+                fraud_res = await self.fraud_agent.execute(
+                    case_id=case_id,
+                    prompt="Analyze documents for affidavit tampering and disputes.",
+                    emitter=emitter,
+                )
+            elif "consent_approvability" in stage_set:
+                # No model calls: deterministic refresh of signer consent approvability
+                emitter.emit(event_type="progress", progress=0.90, message="Stage: Updating claim approvability against updated consent records.")
+                from app.services.claims import generate_claims_for_case
+                generate_claims_for_case(case_id, actor="ConsentUpdate")
 
             # 6. Build Final Summary
             final_assets = AssetRepo.list_by_case(case_id)

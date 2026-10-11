@@ -91,27 +91,15 @@ async def get_case_events_sse(
     last_event_id: str | None = Header(None, alias="Last-Event-ID"),
     uid: str = CurrentUser,
 ):
-    """Stream pipeline events (SSE) for a case's active or latest run."""
+    """Stream pipeline events (SSE) for a case, emitting case_stale, case_fresh, and run events."""
     case = CasesRepo.get(id)
     if not case:
         raise NotFound(f"Case '{id}' not found.")
 
     verify_case_access(id, uid, allow_read_seed=True)
 
-    # Find active or latest run
-    active_run = AgentRunRepo.get_active_by_case(id)
-    if not active_run:
-        # Check latest run
-        runs = AgentRunRepo.get_active_by_case(id)
-        if not runs:
-            # Create on-demand or return empty stream
-            run_rec, _ = run_manager.start_case_run(id)
-            active_run = run_rec
-
-    rid = active_run["run_id"]
     parsed_last_id = int(last_event_id) if last_event_id and last_event_id.isdigit() else None
-
-    stream_generator = run_manager.stream_run_events(rid, last_event_id=parsed_last_id)
+    stream_generator = run_manager.stream_case_events(id, last_event_id=parsed_last_id)
     return StreamingResponse(
         stream_generator,
         media_type="text/event-stream",

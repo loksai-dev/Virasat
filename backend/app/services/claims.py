@@ -565,14 +565,19 @@ def generate_claim_packet_pdf(
 def generate_claims_for_case(
     case_id: str,
     actor: str = "ClaimsPackagerAgent",
+    target_asset_ids: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Scan all case assets, evaluate rules, assemble claim packets, and persist."""
+    """Scan case assets, evaluate rules, assemble claim packets, and persist."""
     case = CasesRepo.get(case_id)
     if not case:
         return []
 
     data_version = case.get("data_version", 1)
     assets = AssetRepo.list_by_case(case_id)
+    if target_asset_ids:
+        target_set = set(target_asset_ids)
+        assets = [a for a in assets if a.get("asset_id") in target_set]
+
     people = PersonRepo.list_by_case(case_id)
     people_map = {p["person_id"]: p for p in people}
     deceased_id = case.get("deceased_person_id")

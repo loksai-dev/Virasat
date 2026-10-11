@@ -188,7 +188,7 @@ def update_person(
     if "is_alive" in updates and "alive" not in updates:
         cleaned_updates["alive"] = updates["is_alive"]
 
-    actor = f"user:{uid}"
+    actor = uid
     updated_person, next_ver = PersonRepo.update(case_id, person_id, cleaned_updates, actor=actor)
 
     publish_case_event(case_id, "case_changed", {"action": "person_updated", "person_id": person_id})

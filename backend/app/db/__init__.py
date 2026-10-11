@@ -17,6 +17,7 @@ from app.db.repositories import (
     AssetRepo,
     AuditLogRepo,
     CasesRepo,
+    ChangeLogRepo,
     ChatMessageRepo,
     ClaimRepo,
     ConsentRepo,

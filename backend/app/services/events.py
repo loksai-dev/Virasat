@@ -38,7 +38,7 @@ def publish_case_event(key: str, event_type: str, data: dict[str, Any] | None = 
         "event_type": event_type,
         "data": data or {},
     }
-    listeners = list(_subscribers.get(key, []))
+    listeners = list(_subscribers.get(key, [])) + list(_subscribers.get("*", []))
     for cb in listeners:
         try:
             if asyncio.iscoroutinefunction(cb):

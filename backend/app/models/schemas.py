@@ -332,17 +332,32 @@ class AgentEvent(BaseModel):
 # WhatIf Schemas
 # ---------------------------------------------------------
 class WhatIfRequest(BaseModel):
+    changes: list[dict[str, Any]] = []
     hypothetical_nodes: list[dict[str, Any]] = []
     hypothetical_edges: list[dict[str, Any]] = []
     scenario_override: str | None = None
 
 
+class WhatIfDiffItem(BaseModel):
+    person_id: str
+    name: str
+    baseline_pct: Decimal = Decimal("0")
+    whatif_pct: Decimal = Decimal("0")
+    diff_pct: Decimal = Decimal("0")
+    baseline_amount_inr: Decimal = Decimal("0")
+    whatif_amount_inr: Decimal = Decimal("0")
+    diff_amount_inr: Decimal = Decimal("0")
+
+
 class WhatIfResponse(BaseModel):
     case_id: str
     simulated: bool = True
-    shares: list[PersonShare]
-    delta_explanation: str
-    confidence: float
+    shares: list[PersonShare] = []
+    baseline_shares: list[PersonShare] = []
+    diff: list[WhatIfDiffItem] = []
+    claim_readiness: dict[str, Any] = {}
+    delta_explanation: str = ""
+    confidence: float = 1.0
 
 
 # ---------------------------------------------------------
@@ -503,27 +518,50 @@ class ConsentResponse(BaseModel):
 # Institution Dashboard Schemas
 # ---------------------------------------------------------
 class InstitutionDashboardResponse(BaseModel):
-    total_claims: int
-    pending_verification: int
-    fraud_flags: int
-    avg_processing_days: float
+    total_claims: int = 0
+    open_claims: int = 0
+    pending_verification: int = 0
+    fraud_flags: int = 0
+    avg_processing_days: float = 0.0
+    stp_percentage: float = 0.0
+    cost_saved_inr: Decimal = Decimal("0")
+    cost_assumptions: dict[str, Any] = Field(default_factory=dict)
+    funnel: list[dict[str, Any]] = Field(default_factory=list)
+    before_vs_after: dict[str, Any] = Field(default_factory=dict)
+    claims_by_type: list[dict[str, Any]] = Field(default_factory=list)
+    regional_split: list[dict[str, Any]] = Field(default_factory=list)
+    synthetic: bool = True
 
 
 class InstitutionSavingsResponse(BaseModel):
     claims_per_year: int
     estimated_hours_saved: float
     estimated_rupees_saved: Decimal
+    cost_assumptions: dict[str, Any] = Field(default_factory=dict)
     synthetic: bool = True
 
 
 # ---------------------------------------------------------
 # Impact Schemas
 # ---------------------------------------------------------
+class MarketStatItem(BaseModel):
+    key: str
+    title: str
+    value: float | int | str | None = None
+    unit: str | None = None
+    source_name: str | None = None
+    source_url: str | None = None
+    note: str | None = None
+
+
 class ImpactResponse(BaseModel):
-    cases_resolved: int
-    total_wealth_unlocked_inr: Decimal
-    litigation_prevented_est: int
-    avg_time_reduction_pct: float
+    cases_resolved: int = 0
+    total_wealth_unlocked_inr: Decimal = Decimal("0")
+    litigation_prevented_est: int = 0
+    avg_time_reduction_pct: float = 0.0
+    hero: dict[str, Any] = Field(default_factory=dict)
+    before_vs_after_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    market: list[MarketStatItem] = Field(default_factory=list)
     synthetic: bool = True
 
 

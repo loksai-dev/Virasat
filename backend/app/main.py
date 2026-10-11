@@ -13,7 +13,8 @@ from app.deps import get_genai_client, get_spanner_database
 from app.errors import AppException, register_exception_handlers
 from app.logging_setup import request_id_ctx, setup_logging
 from app.models.schemas import HealthResponse, ReadyModelConfig, ReadyResponse
-from app.routers import api_router
+from app.routers import api_router, root_router
+from app.services.change_propagation import change_propagator
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,8 @@ async def readiness_check(cfg: Settings = Depends(get_settings)):
 
 
 # --------------------------------------------------------------------------
-# Include All API Contract Routers under /api
+# Include All API Contract Routers under /api and root
 # --------------------------------------------------------------------------
 app.include_router(api_router)
+app.include_router(root_router)
+

@@ -214,9 +214,9 @@ class FraudDisputeAgent(BaseAgent):
         valid_asset_ids = {a["asset_id"] for a in case_context.get("assets", [])}
         valid_fact_ids = valid_person_ids | valid_asset_ids
 
-        enriched: list[dict[str, Any]] = []
+        client = get_genai_client()
 
-        for finding in detector_findings:
+        async def _enrich_one(finding: dict[str, Any]) -> dict[str, Any]:
             kind = finding["kind"]
             title = finding["title"]
             severity = finding["severity"]
@@ -246,7 +246,6 @@ class FraudDisputeAgent(BaseAgent):
             )
 
             reasoning_text = ""
-            client = get_genai_client()
             if client:
                 try:
                     response = await asyncio.to_thread(
@@ -313,7 +312,7 @@ class FraudDisputeAgent(BaseAgent):
 
             ehash = finding.get("evidence_hash") or ""
 
-            enriched.append({
+            return {
                 "kind": kind,
                 "severity": severity,
                 "title": title,
@@ -321,6 +320,6 @@ class FraudDisputeAgent(BaseAgent):
                 "evidence_hash": ehash,
                 "recommended_action": reasoning_text,
                 "status": "OPEN",
-            })
+            }
 
-        return enriched
+        return await asyncio.gather(*[_enrich_one(f) for f in detector_findings])

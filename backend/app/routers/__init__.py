@@ -24,26 +24,32 @@ from app.routers import (
 )
 
 api_router = APIRouter(prefix="/api")
+root_router = APIRouter()
 
-api_router.include_router(sessions.router)
-api_router.include_router(cases.router)
-api_router.include_router(people.router)
-api_router.include_router(relations.router)
-api_router.include_router(assets.router)
-api_router.include_router(will.router)
-api_router.include_router(documents.router)
-api_router.include_router(graph.router)
-api_router.include_router(shares.router)
-api_router.include_router(history.router)
-api_router.include_router(runs.router)
-api_router.include_router(whatif.router)
-api_router.include_router(claims.router)
-api_router.include_router(disputes.router)
-api_router.include_router(chat.router)
-api_router.include_router(audit.router)
-api_router.include_router(consent.router)
-api_router.include_router(institution.router)
-api_router.include_router(impact.router)
-api_router.include_router(admin.router)
+for r in [
+    sessions.router,
+    cases.router,
+    people.router,
+    relations.router,
+    assets.router,
+    will.router,
+    documents.router,
+    graph.router,
+    shares.router,
+    history.router,
+    runs.router,
+    whatif.router,
+    claims.router,
+    disputes.router,
+    chat.router,
+    audit.router,
+    consent.router,
+    institution.router,
+    impact.router,
+    admin.router,
+]:
+    api_router.include_router(r)
+    root_router.include_router(r)
 
-__all__ = ["api_router"]
+__all__ = ["api_router", "root_router"]
+

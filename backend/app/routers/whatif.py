@@ -1,8 +1,10 @@
+"""What-If scenario simulation routes (P13 PART B)."""
+
 from fastapi import APIRouter
 
 from app.deps import CurrentUser
-from app.errors import NotImplementedException
 from app.models.schemas import WhatIfRequest, WhatIfResponse
+from app.services.whatif import simulate_whatif_changes
 
 router = APIRouter(tags=["What-If"])
 
@@ -14,4 +16,4 @@ async def simulate_whatif(
     uid: str = CurrentUser,
 ):
     """Simulate hypothetical scenario changes without mutating the real case graph."""
-    raise NotImplementedException()
+    return simulate_whatif_changes(case_id=id, request=body, uid=uid)

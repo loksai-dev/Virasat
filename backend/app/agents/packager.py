@@ -52,7 +52,8 @@ class ClaimsPackagerAgent(BaseAgent):
             payload={"tool": "generate_claims_for_case", "args": {"case_id": case_id}},
         )
 
-        claims = generate_claims_for_case(case_id, actor=self.name)
+        target_asset_ids = context.get("target_asset_ids") if context else None
+        claims = generate_claims_for_case(case_id, actor=self.name, target_asset_ids=target_asset_ids)
         ready_count = sum(1 for c in claims if c.get("status") == "READY")
         needs_action_count = sum(1 for c in claims if c.get("status") == "NEEDS_ACTION")
 
