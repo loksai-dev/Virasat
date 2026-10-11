@@ -14,3 +14,4 @@ export * from './DisputesPage';
 export * from './ImpactPage';
 export * from './UnderTheHoodPage';
 export * from './ConsentAuditPage';
+export * from './DevApiStatusPage';

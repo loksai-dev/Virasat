@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { formatINR, cn } from '@/lib/utils';
 import { useVirasatStore } from '@/store/useVirasatStore';
+import { estateService } from '@/api/estateService';
 
 // =========================================================================
 // TYPES & DEFINITIONS
@@ -533,6 +534,8 @@ export const ClaimsPage: React.FC = () => {
   // Local state for claims to support mock submission updates
   const [claimsList, setClaimsList] = useState<EnhancedClaim[]>(INITIAL_CLAIMS);
   const [searchQuery, setSearchQuery] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [missingConsentError, setMissingConsentError] = useState<string | null>(null);
 
   // AI Batch Approval Modal State
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
@@ -544,6 +547,70 @@ export const ClaimsPage: React.FC = () => {
     if (!routeClaimId) return null;
     return claimsList.find((c) => c.id === routeClaimId) || null;
   }, [routeClaimId, claimsList]);
+
+  const handleApproveClaim = async () => {
+    if (!selectedClaim) return;
+    setActionLoading(true);
+    setMissingConsentError(null);
+    try {
+      await estateService.approveClaim(selectedClaim.id);
+      addToast({
+        type: 'success',
+        title: 'Claim Approved & Dispatched',
+        message: `Claim ${selectedClaim.id} submitted to ${selectedClaim.institutionName} with digital consents.`,
+      });
+      setClaimsList((prev) =>
+        prev.map((c) =>
+          c.id === selectedClaim.id
+            ? { ...c, status: 'Submitted', stageTitle: 'Submitted to Institution' }
+            : c
+        )
+      );
+    } catch (err: any) {
+      const msg = err.message || 'Cannot approve claim: Missing statutory heir consents.';
+      setMissingConsentError(msg);
+      addToast({
+        type: 'risk',
+        title: 'Consent Required',
+        message: msg,
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAdvanceClaim = async () => {
+    if (!selectedClaim) return;
+    setActionLoading(true);
+    try {
+      const res: any = await estateService.advanceClaim(selectedClaim.id);
+      const nextStatus = res.new_status === 'SETTLED' ? 'Settled' : 'In Review';
+      addToast({
+        type: 'success',
+        title: 'Simulated Institution Response',
+        message: `${selectedClaim.institutionName} advanced claim ${selectedClaim.id} to ${nextStatus}.`,
+      });
+      setClaimsList((prev) =>
+        prev.map((c) =>
+          c.id === selectedClaim.id
+            ? {
+                ...c,
+                status: nextStatus as any,
+                stageTitle: `${selectedClaim.institutionName} ${nextStatus}`,
+              }
+            : c
+        )
+      );
+    } catch (err: any) {
+      addToast({
+        type: 'risk',
+        title: 'Simulation Error',
+        message: err.message || 'Failed to simulate bank response.',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // Ready claims for batch submission
   const readyClaims = useMemo(() => {
@@ -1475,27 +1542,51 @@ export const ClaimsPage: React.FC = () => {
                     ))}
                   </div>
                 </div>
+                {/* Missing Consent Error Banner */}
+                {missingConsentError && (
+                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-rose-950">
+                      <AlertCircle className="w-4 h-4 text-rose-600" />
+                      <span>Approval Blocked: Missing Heir Consent</span>
+                    </div>
+                    <p className="text-[11px] text-rose-700">{missingConsentError}</p>
+                    <Link
+                      to={`/case/${activeCaseId}/audit`}
+                      className="underline font-bold text-rose-900 block mt-1"
+                    >
+                      Review Consent Toggles in Audit Tab →
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Drawer Footer Actions */}
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
-              <button
-                onClick={() =>
-                  addToast({
-                    type: 'info',
-                    title: 'Direct Institution API Ping',
-                    message: `Verified webhook connection to ${selectedClaim.institutionName} gateway. Status: Active.`,
-                  })
-                }
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                Ping Institution API
-              </button>
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleApproveClaim}
+                  disabled={actionLoading || selectedClaim.status === 'Settled' || selectedClaim.status === 'Submitted'}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50 transition-colors shadow-sm"
+                >
+                  {actionLoading ? 'Processing...' : 'Approve Claim'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAdvanceClaim}
+                  disabled={actionLoading || selectedClaim.status === 'Settled'}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                >
+                  Simulate institution response
+                </button>
+              </div>
 
               <button
+                type="button"
                 onClick={handleCloseDrawer}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-navy text-white hover:bg-navy-light transition-colors"
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-navy text-white hover:bg-navy-light transition-colors"
               >
                 Close Drawer
               </button>

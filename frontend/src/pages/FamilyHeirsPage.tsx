@@ -27,10 +27,15 @@ import {
   Building2,
   Landmark,
   Coins,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Trash2,
+  UserX,
+  X
 } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
 import { useVirasatStore } from '@/store/useVirasatStore';
+import { estateService } from '@/api/estateService';
 
 // =========================================================================
 // BI-TEMPORAL TIMELINE DEFINITION

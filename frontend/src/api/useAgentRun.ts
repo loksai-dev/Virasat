@@ -355,7 +355,15 @@ const SCRIPTED_TIMELINE: ScriptedEvent[] = [
   },
 ];
 
-export function useAgentRun(runId: string = 'run-default') {
+import { API_CONFIG } from './config';
+import { api } from './client';
+import { getFirebaseIdToken } from '@/lib/firebase';
+import { useVirasatStore } from '@/store/useVirasatStore';
+
+export function useAgentRun(runIdProp?: string) {
+  const { caseId: storeCaseId } = useVirasatStore();
+  const activeCaseId = storeCaseId || 'VR-2026-0142';
+
   const [agents, setAgents] = useState<AgentState[]>(INITIAL_AGENTS);
   const [logs, setLogs] = useState<ActivityLogItem[]>([]);
   const [assetsLocated, setAssetsLocated] = useState<number>(1);
@@ -365,9 +373,10 @@ export function useAgentRun(runId: string = 'run-default') {
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(Date.now());
+  const lastEventIdRef = useRef<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const processEvent = useCallback((event: AgentRunEvent) => {
     const now = new Date();
@@ -445,7 +454,7 @@ export function useAgentRun(runId: string = 'run-default') {
       if (event.assetsLocated !== undefined) setAssetsLocated(event.assetsLocated);
       if (event.percent !== undefined) setOverallPercent(event.percent);
     } else if (event.type === 'run_done') {
-      setAgents((prev) => prev.map((a) => ({ ...a, status: 'done', progress: 100 })));
+      setAgents((prev) => prev.map((a) => ({ ...a, status: 'done', progress: 100, activity: 'Completed successfully ✓' })));
       setAssetsLocated(12);
       setOverallPercent(100);
       setIsRunning(false);
@@ -467,33 +476,162 @@ export function useAgentRun(runId: string = 'run-default') {
     }
   }, []);
 
-  // Run the scripted event stream
   useEffect(() => {
     startTimeRef.current = Date.now();
     setIsRunning(true);
     setIsCompleted(false);
 
-    // Elapsed timer
     elapsedTimerRef.current = setInterval(() => {
       setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 500);
 
-    // Schedule all timeline events
-    const timeouts: Array<ReturnType<typeof setTimeout>> = [];
-    SCRIPTED_TIMELINE.forEach(({ timeMs, event }) => {
-      const t = setTimeout(() => {
-        processEvent(event);
-      }, timeMs);
-      timeouts.push(t);
-    });
+    // 1. Mock Mode: Play scripted 20-second timeline
+    if (API_CONFIG.USE_MOCKS) {
+      const timeouts: Array<ReturnType<typeof setTimeout>> = [];
+      SCRIPTED_TIMELINE.forEach(({ timeMs, event }) => {
+        const t = setTimeout(() => {
+          processEvent(event);
+        }, timeMs);
+        timeouts.push(t);
+      });
+
+      return () => {
+        if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+        timeouts.forEach(clearTimeout);
+      };
+    }
+
+    // 2. Real Mode: Stream from /api/runs/{id}/events with Last-Event-ID resume
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    async function streamLiveRun() {
+      try {
+        let currentRunId = runIdProp && !runIdProp.startsWith('run-default') ? runIdProp : '';
+
+        // Start a run if needed
+        if (!currentRunId) {
+          const runRes = await api.post<{ run_id: string }>(`/cases/${activeCaseId}/run`, { stages: ['all'] });
+          currentRunId = runRes.run_id;
+        }
+
+        const token = await getFirebaseIdToken();
+        const base = API_CONFIG.BASE_URL.replace(/\/+$/, '');
+        const sseUrl = `${base}/runs/${currentRunId}/events`;
+
+        const headers: Record<string, string> = {
+          Accept: 'text/event-stream',
+        };
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+        if (lastEventIdRef.current !== null) {
+          headers['Last-Event-ID'] = String(lastEventIdRef.current);
+        }
+
+        const response = await fetch(sseUrl, {
+          method: 'GET',
+          headers,
+          signal: abortController.signal,
+        });
+
+        if (!response.ok || !response.body) {
+          throw new Error(`SSE stream failed: HTTP ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split('\n\n');
+          buffer = frames.pop() || '';
+
+          for (const frame of frames) {
+            const lines = frame.split('\n');
+            let seqId: number | null = null;
+            let eventType = '';
+            let dataRaw = '';
+
+            for (const line of lines) {
+              if (line.startsWith('id:')) {
+                seqId = parseInt(line.replace('id:', '').trim(), 10);
+                if (!isNaN(seqId)) lastEventIdRef.current = seqId;
+              } else if (line.startsWith('event:')) {
+                eventType = line.replace('event:', '').trim();
+              } else if (line.startsWith('data:')) {
+                dataRaw = line.replace('data:', '').trim();
+              }
+            }
+
+            if (dataRaw) {
+              try {
+                const parsed = JSON.parse(dataRaw);
+                const rawAgent = (parsed.agent || '').toLowerCase();
+                let agentId: AgentId = 'orchestrator';
+                if (rawAgent.includes('intake')) agentId = 'intake';
+                else if (rawAgent.includes('discovery')) agentId = 'discovery';
+                else if (rawAgent.includes('legal')) agentId = 'legal';
+                else if (rawAgent.includes('packager')) agentId = 'packager';
+                else if (rawAgent.includes('dispute') || rawAgent.includes('fraud')) agentId = 'dispute';
+
+                const citations = Array.isArray(parsed.citations) ? parsed.citations.join('; ') : parsed.citation;
+
+                if (eventType === 'agent_started' || parsed.type === 'agent_started') {
+                  processEvent({
+                    type: 'agent_started',
+                    agentId,
+                    activity: parsed.message || 'Processing...',
+                    message: parsed.message,
+                    citation: citations,
+                  });
+                } else if (eventType === 'agent_done' || parsed.type === 'agent_done') {
+                  processEvent({
+                    type: 'agent_done',
+                    agentId,
+                    message: parsed.message || 'Completed phase.',
+                  });
+                } else if (eventType === 'run_done' || parsed.type === 'run_done') {
+                  processEvent({
+                    type: 'run_done',
+                    message: parsed.message || 'Pipeline successfully settled all assets.',
+                  });
+                  break;
+                } else {
+                  processEvent({
+                    type: 'agent_message',
+                    agentId,
+                    activity: parsed.message || 'Analyzing...',
+                    message: parsed.message,
+                    citation: citations,
+                    progress: parsed.progress ? Math.round(parsed.progress * 100) : undefined,
+                  });
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.warn('[useAgentRun] SSE stream finished or disconnected:', err.message);
+          setIsRunning(false);
+          setIsCompleted(true);
+        }
+      }
+    }
+
+    streamLiveRun();
 
     return () => {
       if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
-      timeouts.forEach(clearTimeout);
+      abortController.abort();
     };
-  }, [runId, processEvent]);
+  }, [runIdProp, activeCaseId, processEvent]);
 
-  // Fast-forward option to instantly finish
   const fastForward = useCallback(() => {
     SCRIPTED_TIMELINE.forEach(({ event }) => processEvent(event));
     setAgents((prev) => prev.map((a) => ({ ...a, status: 'done', progress: 100, activity: 'Completed successfully ✓' })));

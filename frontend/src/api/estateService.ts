@@ -1,144 +1,376 @@
+/**
+ * Virasat Estate Service
+ * 
+ * Provides unified access to all estate settlement API endpoints.
+ * Automatically switches between live Cloud Run API and local mock fixtures
+ * based on API_CONFIG.USE_MOCKS.
+ */
+
 import { API_CONFIG } from './config';
+import { api } from './client';
 import { getMockData, VirasatMockDatabase } from '@/mocks';
 import { CaseScenario } from '@/store/useVirasatStore';
 
-// Helper for simulated latency in mock mode
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const estateService = {
-  /**
-   * Fetch full case metadata
-   */
-  async getCase(scenario: CaseScenario = 'complex') {
+  // --------------------------------------------------------------------------
+  // Cases & Overview
+  // --------------------------------------------------------------------------
+  async getCase(caseId: string) {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
-      return getMockData(scenario).caseDetails;
+      return getMockData('complex').caseDetails;
     }
-    const res = await fetch(`${API_CONFIG.BASE_URL}/cases/active`);
-    if (!res.ok) throw new Error('Failed to fetch case details');
-    return res.json();
+    return api.get(`/cases/${caseId}`);
   },
 
-  /**
-   * Fetch all 12 estate assets (banking, demat, property, loans)
-   */
-  async getAssets(scenario: CaseScenario = 'complex') {
+  async getOverview(caseId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return getMockData('complex');
+    }
+    return api.get(`/cases/${caseId}/overview`);
+  },
+
+  async resetCase(caseId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { case_id: caseId, status: 'reset' };
+    }
+    return api.post(`/cases/${caseId}/reset`);
+  },
+
+  // --------------------------------------------------------------------------
+  // Assets & Nominees
+  // --------------------------------------------------------------------------
+  async getAssets(caseId: string, scenario: CaseScenario = 'complex') {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).assets;
     }
-    const res = await fetch(`${API_CONFIG.BASE_URL}/assets`);
-    if (!res.ok) throw new Error('Failed to fetch estate assets');
-    return res.json();
+    return api.get(`/cases/${caseId}/assets`);
   },
 
-  /**
-   * Fetch legal heirs and nominees
-   */
-  async getPeople(scenario: CaseScenario = 'complex') {
+  async createAsset(caseId: string, data: any) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { ...data, asset_id: `asset-${Date.now()}` };
+    }
+    return api.post(`/cases/${caseId}/assets`, data);
+  },
+
+  async updateAsset(assetId: string, updates: any) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { asset_id: assetId, ...updates };
+    }
+    return api.patch(`/assets/${assetId}`, updates);
+  },
+
+  async deleteAsset(assetId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { status: 'deleted', asset_id: assetId };
+    }
+    return api.delete(`/assets/${assetId}`);
+  },
+
+  async updateNominees(assetId: string, nominees: Array<{ person_id: string; share_pct: number }>) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { asset_id: assetId, nominees };
+    }
+    return api.put(`/assets/${assetId}/nominees`, { nominees });
+  },
+
+  // --------------------------------------------------------------------------
+  // Family Heirs & Relationships
+  // --------------------------------------------------------------------------
+  async getPeople(caseId: string, scenario: CaseScenario = 'complex') {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).people;
     }
-    const res = await fetch(`${API_CONFIG.BASE_URL}/people`);
-    if (!res.ok) throw new Error('Failed to fetch heirs & family data');
-    return res.json();
+    return api.get(`/cases/${caseId}/people`);
   },
 
-  /**
-   * Fetch claim dockets
-   */
-  async getClaims(scenario: CaseScenario = 'complex') {
+  async createPerson(caseId: string, data: any) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { ...data, person_id: `p-${Date.now()}` };
+    }
+    return api.post(`/cases/${caseId}/people`, data);
+  },
+
+  async updatePerson(personId: string, updates: any) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { person_id: personId, ...updates };
+    }
+    return api.patch(`/people/${personId}`, updates);
+  },
+
+  async deletePerson(personId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { status: 'deleted', person_id: personId };
+    }
+    return api.delete(`/people/${personId}`);
+  },
+
+  async createRelationship(caseId: string, data: any) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { ...data, rel_id: `rel-${Date.now()}` };
+    }
+    return api.post(`/cases/${caseId}/relationships`, data);
+  },
+
+  async deleteRelationship(relId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { status: 'deleted', rel_id: relId };
+    }
+    return api.delete(`/relationships/${relId}`);
+  },
+
+  // --------------------------------------------------------------------------
+  // Property Graph (Time-Travel with valid_at & known_at)
+  // --------------------------------------------------------------------------
+  async getGraph(caseId: string, validAt?: string, knownAt?: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return (getMockData('complex') as any).graphNodes || [];
+    }
+    const params = new URLSearchParams();
+    if (validAt) params.set('valid_at', validAt);
+    if (knownAt) params.set('known_at', knownAt);
+    const qs = params.toString();
+    return api.get(`/cases/${caseId}/graph${qs ? `?${qs}` : ''}`);
+  },
+
+  // --------------------------------------------------------------------------
+  // Legal Shares, Will & What-If Simulator
+  // --------------------------------------------------------------------------
+  async getShares(caseId: string, scenario: 'current' | 'with_will' | 'no_will' = 'current') {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return (getMockData('complex') as any).shares || [];
+    }
+    return api.get(`/cases/${caseId}/shares?scenario=${scenario}`);
+  },
+
+  async getWill(caseId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return (getMockData('complex') as any).willDetails || {};
+    }
+    return api.get(`/cases/${caseId}/will`);
+  },
+
+  async updateWill(caseId: string, willData: any) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return willData;
+    }
+    return api.put(`/cases/${caseId}/will`, willData);
+  },
+
+  async runWhatIf(caseId: string, payload: any) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { ...payload, simulation_id: 'whatif-sim-1' };
+    }
+    return api.post(`/cases/${caseId}/whatif`, payload);
+  },
+
+  // --------------------------------------------------------------------------
+  // Claims & Institution Packets
+  // --------------------------------------------------------------------------
+  async getClaims(caseId: string, scenario: CaseScenario = 'complex') {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).claims;
     }
-    const res = await fetch(`${API_CONFIG.BASE_URL}/claims`);
-    if (!res.ok) throw new Error('Failed to fetch claims');
-    return res.json();
+    return api.get(`/cases/${caseId}/claims`);
   },
 
-  /**
-   * Fetch integrated financial institutions
-   */
-  async getInstitutions() {
+  async getClaimPacket(claimId: string) {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
-      return getMockData('complex').institutions;
+      return { claim_id: claimId, checklist: [], packet_pdf_url: '#' };
     }
-    const res = await fetch(`${API_CONFIG.BASE_URL}/institutions`);
-    if (!res.ok) throw new Error('Failed to fetch institutions');
-    return res.json();
+    return api.get(`/claims/${claimId}/packet`);
   },
 
-  /**
-   * Fetch active disputes and AI fraud alerts
-   */
-  async getDisputes(scenario: CaseScenario = 'complex') {
+  async approveClaim(claimId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { claim_id: claimId, approved: true, status: 'SUBMITTED' };
+    }
+    return api.post(`/claims/${claimId}/approve`);
+  },
+
+  async advanceClaim(claimId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { claim_id: claimId, old_status: 'SUBMITTED', new_status: 'IN_REVIEW', simulated: true };
+    }
+    return api.post(`/claims/${claimId}/advance`);
+  },
+
+  // --------------------------------------------------------------------------
+  // Disputes & Caveat Sentinel
+  // --------------------------------------------------------------------------
+  async getDisputes(caseId: string, scenario: CaseScenario = 'complex') {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).disputes;
     }
-    const res = await fetch(`${API_CONFIG.BASE_URL}/disputes`);
-    if (!res.ok) throw new Error('Failed to fetch disputes');
-    return res.json();
+    return api.get(`/cases/${caseId}/disputes`);
   },
 
-  /**
-   * Fetch vault documents
-   */
-  async getDocuments(scenario: CaseScenario = 'complex') {
+  async resolveDispute(disputeId: string, resolution: any) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { dispute_id: disputeId, status: 'RESOLVED', ...resolution };
+    }
+    return api.post(`/disputes/${disputeId}/resolve`, resolution);
+  },
+
+  // --------------------------------------------------------------------------
+  // Documents & Vault
+  // --------------------------------------------------------------------------
+  async getDocuments(caseId: string, scenario: CaseScenario = 'complex') {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).documents;
     }
-    const res = await fetch(`${API_CONFIG.BASE_URL}/documents`);
-    if (!res.ok) throw new Error('Failed to fetch documents');
-    return res.json();
+    return api.get(`/cases/${caseId}/documents`);
   },
 
-  /**
-   * Fetch audit trail
-   */
-  async getAuditTrail(scenario: CaseScenario = 'complex') {
+  async uploadDocument(caseId: string, file: File, docType: string = 'OTHER') {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { doc_id: `doc-${Date.now()}`, original_name: file.name, status: 'EXTRACTED' };
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('doc_type', docType);
+    return api.post(`/cases/${caseId}/documents`, formData);
+  },
+
+  async updateDocument(docId: string, updates: any) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { doc_id: docId, ...updates };
+    }
+    return api.patch(`/documents/${docId}`, updates);
+  },
+
+  async deleteDocument(docId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { status: 'deleted', doc_id: docId };
+    }
+    return api.delete(`/documents/${docId}`);
+  },
+
+  // --------------------------------------------------------------------------
+  // Audit Trail & Cryptographic Verification
+  // --------------------------------------------------------------------------
+  async getAuditTrail(caseId: string, scenario: CaseScenario = 'complex') {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).auditTrail;
     }
-    const res = await fetch(`${API_CONFIG.BASE_URL}/audit`);
-    if (!res.ok) throw new Error('Failed to fetch audit trail');
-    return res.json();
+    return api.get(`/cases/${caseId}/audit`);
   },
 
-  /**
-   * Fetch institution operations dashboard metrics
-   */
+  async verifyAuditTrail(caseId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { verified: true, chain_length: 24, head_hash: 'a7f9c2...b31e' };
+    }
+    return api.get(`/cases/${caseId}/audit/verify`);
+  },
+
+  // --------------------------------------------------------------------------
+  // Consent Registry (DPDP Act Compliance)
+  // --------------------------------------------------------------------------
+  async getConsent(caseId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return (getMockData('complex') as any).consentSummary || {};
+    }
+    return api.get(`/cases/${caseId}/consent`);
+  },
+
+  async updateConsent(caseId: string, personId: string, status: 'GIVEN' | 'REVOKED' | 'PENDING') {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { case_id: caseId, person_id: personId, status };
+    }
+    return api.put(`/cases/${caseId}/consent`, { person_id: personId, status });
+  },
+
+  // --------------------------------------------------------------------------
+  // Institution Console
+  // --------------------------------------------------------------------------
   async getInstitutionDashboard() {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData('complex').institutionDashboard;
     }
-    const res = await fetch(`${API_CONFIG.BASE_URL}/operations/dashboard`);
-    if (!res.ok) throw new Error('Failed to fetch institution dashboard');
-    return res.json();
+    return api.get('/institution/dashboard');
   },
 
-  /**
-   * Fetch impact & time savings metrics
-   */
+  async getInstitutionClaims() {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return getMockData('complex').claims;
+    }
+    return api.get('/institution/claims');
+  },
+
+  async getInstitutionSavings(claimsPerYear: number = 50000) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { claims_per_year: claimsPerYear, annual_savings_crores: 14.8 };
+    }
+    return api.get(`/institution/savings?claims_per_year=${claimsPerYear}`);
+  },
+
+  // --------------------------------------------------------------------------
+  // Impact Metrics
+  // --------------------------------------------------------------------------
   async getImpactMetrics() {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData('complex').impactMetrics;
     }
-    const res = await fetch(`${API_CONFIG.BASE_URL}/impact`);
-    if (!res.ok) throw new Error('Failed to fetch impact metrics');
-    return res.json();
+    return api.get('/impact');
   },
 
-  /**
-   * Complete mock bundle for preloading or synchronized views
-   */
+  // --------------------------------------------------------------------------
+  // Health & Readiness (for /dev/api-status)
+  // --------------------------------------------------------------------------
+  async getHealth() {
+    const rootUrl = API_CONFIG.BASE_URL.replace(/\/api\/?$/, '');
+    const res = await fetch(`${rootUrl}/health`);
+    return { ok: res.ok, status: res.status, data: await res.json() };
+  },
+
+  async getReady() {
+    const rootUrl = API_CONFIG.BASE_URL.replace(/\/api\/?$/, '');
+    const res = await fetch(`${rootUrl}/ready`);
+    return { ok: res.ok, status: res.status, data: await res.text() };
+  },
+
+  // --------------------------------------------------------------------------
+  // Legacy / Bulk Access
+  // --------------------------------------------------------------------------
   async getAll(scenario: CaseScenario = 'complex'): Promise<VirasatMockDatabase> {
     if (API_CONFIG.USE_MOCKS) {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
@@ -147,3 +379,5 @@ export const estateService = {
     throw new Error('Bulk API endpoint not configured');
   },
 };
+
+export default estateService;

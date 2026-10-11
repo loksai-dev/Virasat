@@ -240,12 +240,14 @@ export const CANNED_RESPONSES: Record<string, CannedResponse> = {
   },
 };
 
+import { API_CONFIG } from './config';
+import { getFirebaseIdToken } from '@/lib/firebase';
+import { useVirasatStore } from '@/store/useVirasatStore';
+
 /**
- * Streaming chat client simulation.
- * Calls onChunk every 20-30ms with accumulated text, then onComplete with full rich payload.
- * Easily swappable with POST /chat SSE/ReadableStream.
+ * Streaming chat client simulation (used when VITE_USE_MOCKS=true).
  */
-export function streamChatCompletion(
+export function streamMockChatCompletion(
   prompt: string,
   onChunk: (accumulatedText: string) => void,
   onComplete: (fullResponse: CannedResponse) => void
@@ -261,7 +263,7 @@ export function streamChatCompletion(
     matchedKey = 'hdfc_claim';
   }
 
-  const responsePayload = CANNED_RESPONSES[matchedKey];
+  const responsePayload = CANNED_RESPONSES[matchedKey] || CANNED_RESPONSES.hdfc_claim;
   const words = responsePayload.fullText.split(' ');
   let wordIndex = 0;
   let accumulated = '';
@@ -286,5 +288,168 @@ export function streamChatCompletion(
   return () => {
     isCancelled = true;
     clearInterval(intervalId);
+  };
+}
+
+/**
+ * Universal Streaming Chat client:
+ * Connects to live Cloud Run /api/chat SSE endpoint via fetch with Bearer token,
+ * or runs simulation when VITE_USE_MOCKS=true.
+ */
+export function streamChatCompletion(
+  prompt: string,
+  onChunk: (accumulatedText: string) => void,
+  onComplete: (fullResponse: CannedResponse) => void,
+  options?: { caseId?: string; language?: string }
+): () => void {
+  if (API_CONFIG.USE_MOCKS) {
+    return streamMockChatCompletion(prompt, onChunk, onComplete);
+  }
+
+  const abortController = new AbortController();
+  const caseId = options?.caseId || useVirasatStore.getState().caseId || 'case-sharma-1956';
+  const language = options?.language || 'en';
+
+  (async () => {
+    try {
+      const token = await getFirebaseIdToken();
+      const base = API_CONFIG.BASE_URL.replace(/\/+$/, '');
+      const response = await fetch(`${base}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          case_id: caseId,
+          message: prompt,
+          language,
+        }),
+        signal: abortController.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Chat request failed: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let accumulated = '';
+      let donePayload: any = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+
+        for (const part of parts) {
+          const lines = part.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data:')) {
+              const dataStr = line.replace('data:', '').trim();
+              if (!dataStr) continue;
+              try {
+                const parsed = JSON.parse(dataStr);
+                if (parsed.type === 'token' && parsed.content) {
+                  accumulated += parsed.content;
+                  onChunk(accumulated);
+                } else if (parsed.type === 'done') {
+                  donePayload = parsed;
+                }
+              } catch {
+                // skip unparseable
+              }
+            }
+          }
+        }
+      }
+
+      const fullText = donePayload?.answer || accumulated || 'Response received.';
+
+      let inlineCard: InlineCardData | undefined = undefined;
+      if (donePayload?.cards && donePayload.cards.length > 0) {
+        const firstCard = donePayload.cards[0];
+        inlineCard = {
+          type: firstCard.card_type === 'share_table' ? 'asset_summary' : (firstCard.card_type || 'asset_summary'),
+          title: firstCard.title || 'Estate Summary',
+          subtitle: firstCard.subtitle,
+          data: firstCard.data,
+        };
+      }
+
+      const entityChips: EntityChip[] = (donePayload?.entity_links || []).map((el: any, idx: number) => {
+        const typeStr = (el.type || 'asset').toLowerCase();
+        let mappedType: 'asset' | 'heir' | 'claim' | 'document' | 'shares' = 'asset';
+        let route = `/case/${caseId}/overview`;
+        if (typeStr.includes('person') || typeStr.includes('heir')) {
+          mappedType = 'heir';
+          route = `/case/${caseId}/family`;
+        } else if (typeStr.includes('claim')) {
+          mappedType = 'claim';
+          route = `/case/${caseId}/claims`;
+        } else if (typeStr.includes('doc')) {
+          mappedType = 'document';
+          route = `/case/${caseId}/documents`;
+        } else if (typeStr.includes('share')) {
+          mappedType = 'shares';
+          route = `/case/${caseId}/heirs/shares`;
+        } else {
+          mappedType = 'asset';
+          route = `/case/${caseId}/assets`;
+        }
+        return {
+          id: el.id || `ec-${idx}`,
+          label: el.label || el.id || 'Entity',
+          type: mappedType,
+          route,
+        };
+      });
+
+      const citations: CitationSource[] = (donePayload?.citations || []).map((c: any, idx: number) => {
+        if (typeof c === 'string') {
+          return {
+            id: `cite-${idx}`,
+            shortLabel: c,
+            fullTitle: `Statutory Provision & Case Precedent: ${c}`,
+            authority: 'Virasat Legal Engine',
+            provisionRef: c,
+            verbatimExcerpt: 'Referenced in statutory rules & case facts.',
+            plainEnglishExplanation: 'Grounding citation verified by Virasat GraphRAG engine.',
+          };
+        }
+        return {
+          id: c.id || `cite-${idx}`,
+          shortLabel: c.shortLabel || c.title || 'Citation',
+          fullTitle: c.fullTitle || c.title || 'Legal Provision',
+          authority: c.authority || 'Court / Statute',
+          provisionRef: c.provisionRef || c.section || '',
+          verbatimExcerpt: c.verbatimExcerpt || c.excerpt || '',
+          plainEnglishExplanation: c.plainEnglishExplanation || c.explanation || '',
+        };
+      });
+
+      onComplete({
+        promptId: 'live_chat',
+        matchedPrompt: prompt,
+        fullText,
+        inlineCard,
+        entityChips,
+        citations,
+      });
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Live chat stream error, falling back:', err);
+        streamMockChatCompletion(prompt, onChunk, onComplete);
+      }
+    }
+  })();
+
+  return () => {
+    abortController.abort();
   };
 }

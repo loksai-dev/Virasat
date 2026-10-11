@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 
 export type UserRole = 'family' | 'institution' | 'judge' | null;
 export type CaseScenario = 'simple' | 'complex' | 'disputed';
+export type CaseMode = 'prefilled' | 'from_documents';
 export type SupportedLanguage = 'en' | 'hi' | 'te';
 
 export interface ToastMessage {
@@ -17,6 +18,8 @@ interface VirasatState {
   role: UserRole;
   caseId: string;
   scenario: CaseScenario;
+  mode: CaseMode;
+  dataVersion: number;
   language: SupportedLanguage;
   tourActive: boolean;
   toasts: ToastMessage[];
@@ -25,6 +28,8 @@ interface VirasatState {
   setRole: (role: UserRole) => void;
   setCaseId: (caseId: string) => void;
   setScenario: (scenario: CaseScenario) => void;
+  setMode: (mode: CaseMode) => void;
+  setDataVersion: (dataVersion: number) => void;
   setLanguage: (lang: SupportedLanguage) => void;
   setTourActive: (active: boolean) => void;
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
@@ -36,7 +41,9 @@ export const useVirasatStore = create<VirasatState>()(
     (set) => ({
       role: null, // Disabled until a role is chosen
       caseId: 'VR-2026-0142',
-      scenario: 'complex', // Default scenario: Complex
+      scenario: 'complex', // Default scenario: Complex (Sharma)
+      mode: 'prefilled',
+      dataVersion: 1,
       language: 'en',
       tourActive: false,
       toasts: [],
@@ -44,6 +51,8 @@ export const useVirasatStore = create<VirasatState>()(
       setRole: (role) => set({ role }),
       setCaseId: (caseId) => set({ caseId }),
       setScenario: (scenario) => set({ scenario }),
+      setMode: (mode) => set({ mode }),
+      setDataVersion: (dataVersion) => set({ dataVersion }),
       setLanguage: (language) => set({ language }),
       setTourActive: (tourActive) => set({ tourActive }),
       addToast: (toast) => {
@@ -65,6 +74,8 @@ export const useVirasatStore = create<VirasatState>()(
         role: state.role,
         caseId: state.caseId,
         scenario: state.scenario,
+        mode: state.mode,
+        dataVersion: state.dataVersion,
         language: state.language,
         tourActive: state.tourActive,
       }),

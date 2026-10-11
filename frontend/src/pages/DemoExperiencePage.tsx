@@ -14,8 +14,10 @@ import {
   Layers,
   Heart
 } from 'lucide-react';
+import { ensureAnonymousSession } from '@/lib/firebase';
+import { api } from '@/api/client';
+import { API_CONFIG } from '@/api/config';
 import { useVirasatStore, UserRole, CaseScenario } from '@/store/useVirasatStore';
-import { baseCaseData } from '@/mocks/caseData';
 
 export const DemoExperiencePage: React.FC = () => {
   const navigate = useNavigate();
@@ -26,20 +28,21 @@ export const DemoExperiencePage: React.FC = () => {
     setScenario, 
     caseId, 
     setCaseId, 
+    mode,
+    setMode,
     setTourActive, 
     addToast 
   } = useVirasatStore();
 
-  // Ensure caseId defaults to the mock case if not set
+  const [startFromDocuments, setStartFromDocuments] = React.useState(mode === 'from_documents');
+  const [isEntering, setIsEntering] = React.useState(false);
+
+  // Ensure default scenario is Complex if undefined
   useEffect(() => {
-    if (!caseId) {
-      setCaseId(baseCaseData.id);
-    }
-    // Default scenario to Complex if undefined
     if (!scenario) {
       setScenario('complex');
     }
-  }, [caseId, scenario, setCaseId, setScenario]);
+  }, [scenario, setScenario]);
 
   const roles = [
     {
@@ -74,21 +77,24 @@ export const DemoExperiencePage: React.FC = () => {
     },
   ];
 
-  const scenarios: { id: CaseScenario; label: string; desc: string }[] = [
-    {
-      id: 'simple',
-      label: 'Simple (clear nominee)',
-      desc: 'All assets have valid registered nominees; 85% fast-track completion.',
-    },
+  const scenarios: { id: CaseScenario; label: string; desc: string; backendKey: 'sharma' | 'mehta' }[] = [
     {
       id: 'complex',
-      label: 'Complex (no will, multiple heirs)',
-      desc: 'Intestate estate with 4 Class-I legal heirs requiring mutual NOC agreements.',
+      label: 'Complex (Sharma)',
+      desc: 'Intestate estate with 4 Class-I legal heirs and ₹2.84 Cr across 12 folios.',
+      backendKey: 'sharma',
+    },
+    {
+      id: 'simple',
+      label: 'Simple (Mehta)',
+      desc: 'Registered will with 8 assets and ₹1.678 Cr clean statutory devolution.',
+      backendKey: 'mehta',
     },
     {
       id: 'disputed',
-      label: 'Disputed (fraud flagged)',
+      label: 'Disputed Claim (Sharma)',
       desc: 'Adverse claim by brother Vikram flagged by AI DisputeGuard with Section 8 defense.',
+      backendKey: 'sharma',
     },
   ];
 
@@ -100,35 +106,80 @@ export const DemoExperiencePage: React.FC = () => {
     setScenario(selectedScenario);
   };
 
-  const handleEnterDemo = () => {
-    if (!role) return;
+  const handleEnterDemo = async () => {
+    if (!role || isEntering) return;
+    setIsEntering(true);
 
-    const currentCaseId = caseId || 'VR-2026-0142';
+    try {
+      // 1. Firebase anonymous authentication
+      await ensureAnonymousSession();
 
-    if (role === 'family') {
-      setTourActive(false);
+      const backendScenario: 'sharma' | 'mehta' = (scenario as string === 'simple' || scenario as string === 'mehta') ? 'mehta' : 'sharma';
+      const backendMode: 'prefilled' | 'from_documents' = startFromDocuments ? 'from_documents' : 'prefilled';
+      const backendRole = role === 'institution' ? 'INSTITUTION' : role === 'judge' ? 'JUDGE' : 'CLAIMANT';
+
+      let newCaseId = caseId || 'VR-2026-0142';
+
+      // 2. Clone real demo session from backend unless mocking
+      if (!API_CONFIG.USE_MOCKS) {
+        try {
+          const res = await api.post<{ case_id: string }>('/demo/session', {
+            role: backendRole,
+            scenario: backendScenario,
+            mode: backendMode,
+          });
+          if (res?.case_id) {
+            newCaseId = res.case_id;
+          }
+        } catch (apiErr: any) {
+          console.warn('[DemoSession] API clone error, falling back to local case:', apiErr);
+          addToast({
+            type: 'warning',
+            title: 'Cloud Session Notice',
+            message: apiErr.message || 'Connecting to private session...',
+          });
+        }
+      }
+
+      setCaseId(newCaseId);
+      setMode(backendMode);
+      localStorage.setItem('virasat_case_id', newCaseId);
+
+      if (role === 'family') {
+        setTourActive(false);
+        addToast({
+          type: 'success',
+          title: 'Entering Family Experience',
+          message: `Loaded ${backendScenario === 'sharma' ? 'Sharma' : 'Mehta'} Estate (${newCaseId.slice(0, 8)}...).`,
+        });
+        navigate(backendMode === 'from_documents' ? `/case/${newCaseId}/agents` : `/case/${newCaseId}/start`);
+      } else if (role === 'institution') {
+        setTourActive(false);
+        addToast({
+          type: 'info',
+          title: 'Entering Institutional Portal',
+          message: 'Loaded Bank & Insurer Centralized Operations Console.',
+        });
+        navigate('/institution');
+      } else if (role === 'judge') {
+        setTourActive(true);
+        addToast({
+          type: 'success',
+          title: 'Judge Mode Tour Initiated',
+          message: `60-second guided evaluation walkthrough active on ${backendScenario.toUpperCase()} estate.`,
+        });
+        navigate(backendMode === 'from_documents' ? `/case/${newCaseId}/agents?tour=true` : `/case/${newCaseId}/start?tour=true`);
+      }
+    } catch (err: any) {
+      console.error('Failed to enter demo:', err);
       addToast({
-        type: 'success',
-        title: 'Entering Family Experience',
-        message: `Loaded Sharma Estate (${currentCaseId}) in ${scenario.toUpperCase()} scenario.`,
+        type: 'risk',
+        title: 'Authentication Error',
+        message: err.message || 'Could not initialize session.',
       });
-      navigate(`/case/${currentCaseId}/start`);
-    } else if (role === 'institution') {
-      setTourActive(false);
-      addToast({
-        type: 'info',
-        title: 'Entering Institutional Portal',
-        message: 'Loaded Bank & Insurer Centralized Operations Console.',
-      });
-      navigate('/institution');
-    } else if (role === 'judge') {
-      setTourActive(true);
-      addToast({
-        type: 'success',
-        title: 'Judge Mode Tour Initiated',
-        message: '60-second guided evaluation walkthrough active.',
-      });
-      navigate(`/case/${currentCaseId}/start?tour=true`);
+      navigate(`/case/${caseId || 'VR-2026-0142'}/start`);
+    } finally {
+      setIsEntering(false);
     }
   };
 
@@ -285,20 +336,61 @@ export const DemoExperiencePage: React.FC = () => {
           </div>
         </div>
 
+        {/* Start From Documents Mode Toggle (for Judge / Family mode) */}
+        {(role === 'family' || role === 'judge') && (
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200">
+            <div className="space-y-0.5 pr-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-navy">Start from documents (Live Discovery)</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
+                  Judges & Evaluators
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Start with an empty estate and watch autonomous agents extract PDFs and discover all assets live.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={startFromDocuments}
+              onClick={() => setStartFromDocuments(!startFromDocuments)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                startFromDocuments ? 'bg-teal-600' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  startFromDocuments ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        )}
+
         {/* Action Button & Disclaimer Footer */}
         <div className="pt-4 border-t border-slate-100 flex flex-col items-center space-y-3">
           <button
             type="button"
             onClick={handleEnterDemo}
-            disabled={!role}
+            disabled={!role || isEntering}
             className={`w-full sm:w-auto min-w-[280px] px-8 py-4 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-soft ${
-              role
+              role && !isEntering
                 ? 'bg-navy hover:bg-navy-light text-white cursor-pointer hover:-translate-y-0.5 shadow-elevated'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
             }`}
           >
-            <span>Enter Demo</span>
-            <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+            {isEntering ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                <span>Initializing Session...</span>
+              </span>
+            ) : (
+              <>
+                <span>Enter Demo</span>
+                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+              </>
+            )}
           </button>
 
           {!role && (

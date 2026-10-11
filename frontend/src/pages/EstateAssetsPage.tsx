@@ -25,10 +25,14 @@ import {
   Sparkles,
   Info,
   ChevronRight,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Plus,
+  Trash2,
+  Users
 } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
 import { useVirasatStore } from '@/store/useVirasatStore';
+import { estateService } from '@/api/estateService';
 import { getMockData } from '@/mocks';
 
 export type DisplayAssetStatus = 'Located' | 'Claim ready' | 'Filed' | 'Blocked';
@@ -495,7 +499,7 @@ export const ENHANCED_ASSETS: EnhancedEstateAsset[] = [
 export const EstateAssetsPage: React.FC = () => {
   const navigate = useNavigate();
   const { caseId: paramCaseId, assetId: paramAssetId } = useParams();
-  const { caseId: storeCaseId } = useVirasatStore();
+  const { caseId: storeCaseId, addToast } = useVirasatStore();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeCaseId = paramCaseId || storeCaseId || 'VR-2026-0142';
@@ -507,11 +511,166 @@ export const EstateAssetsPage: React.FC = () => {
   const sortKey = searchParams.get('sort') || 'value'; // 'name' | 'value' | 'confidence' | 'status'
   const sortOrder = (searchParams.get('order') as 'asc' | 'desc') || 'desc';
 
+  const [assetsList, setAssetsList] = useState<EnhancedEstateAsset[]>(ENHANCED_ASSETS);
+  const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newAsset, setNewAsset] = useState({
+    name: '',
+    category: 'Banking' as any,
+    accountOrFolioNumber: '',
+    grossValue: 500000,
+    nomineeName: 'Sunita Sharma (Spouse)',
+  });
+
+  const [nomineeShare, setNomineeShare] = useState<number>(100);
+  const [nominee2Share, setNominee2Share] = useState<number>(0);
+  const [nomineeError, setNomineeError] = useState<string | null>(null);
+  const [isSavingNominees, setIsSavingNominees] = useState(false);
+
   // Active asset for drawer (from URL param or fallback)
   const activeAsset = useMemo(() => {
     if (!paramAssetId) return null;
-    return ENHANCED_ASSETS.find((a) => a.id === paramAssetId) || null;
-  }, [paramAssetId]);
+    return assetsList.find((a) => a.id === paramAssetId) || null;
+  }, [paramAssetId, assetsList]);
+
+  // Sync nominee share when activeAsset changes
+  useEffect(() => {
+    if (activeAsset) {
+      setNomineeShare(100);
+      setNominee2Share(0);
+      setNomineeError(null);
+    }
+  }, [activeAsset]);
+
+  const handleSaveNominees = async () => {
+    if (!activeAsset) return;
+    const total = Number(nomineeShare) + Number(nominee2Share);
+    if (total !== 100) {
+      setNomineeError(`Nominees must total exactly 100% (currently ${total}%)`);
+      addToast({
+        type: 'risk',
+        title: 'Validation Failed',
+        message: `Nominee shares must total exactly 100%, got ${total}%.`,
+      });
+      return;
+    }
+    setNomineeError(null);
+    setIsSavingNominees(true);
+    try {
+      const nomineesPayload = [
+        { person_id: 'p-sunita', share_pct: Number(nomineeShare) },
+        ...(Number(nominee2Share) > 0 ? [{ person_id: 'p-arjun', share_pct: Number(nominee2Share) }] : []),
+      ];
+      await estateService.updateNominees(activeAsset.id, nomineesPayload);
+      addToast({
+        type: 'success',
+        title: 'Nominee Shares Recorded',
+        message: `Updated nominees for ${activeAsset.name} to total 100%. Numbers recalculated.`,
+      });
+      setAssetsList((prev) =>
+        prev.map((a) =>
+          a.id === activeAsset.id
+            ? {
+                ...a,
+                nomineeName:
+                  Number(nominee2Share) > 0
+                    ? `Sunita (${nomineeShare}%) & Arjun (${nominee2Share}%)`
+                    : `Sunita Sharma (${nomineeShare}%)`,
+              }
+            : a
+        )
+      );
+    } catch (err: any) {
+      addToast({
+        type: 'risk',
+        title: 'Update Failed',
+        message: err.message || 'Could not update nominees.',
+      });
+    } finally {
+      setIsSavingNominees(false);
+    }
+  };
+
+  const handleDeleteAsset = async () => {
+    if (!activeAsset) return;
+    try {
+      await estateService.deleteAsset(activeAsset.id);
+      addToast({
+        type: 'success',
+        title: 'Asset Removed',
+        message: `${activeAsset.name} removed from estate registry.`,
+      });
+      setAssetsList((prev) => prev.filter((a) => a.id !== activeAsset.id));
+      closeDrawer();
+    } catch (err: any) {
+      addToast({
+        type: 'risk',
+        title: 'Deletion Failed',
+        message: err.message || 'Could not delete asset.',
+      });
+    }
+  };
+
+  const handleCreateAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAsset.name) return;
+    setIsSubmitting(true);
+    try {
+      const created: any = await estateService.createAsset(activeCaseId, {
+        category: newAsset.category,
+        description: newAsset.name,
+        gross_value: Number(newAsset.grossValue),
+        account_no: newAsset.accountOrFolioNumber,
+        nominees: [{ person_id: 'p-sunita', share_pct: 100 }],
+      });
+      const newEnhanced: EnhancedEstateAsset = {
+        id: created.id || `asset-${Date.now()}`,
+        name: newAsset.name,
+        category: newAsset.category,
+        institutionId: 'inst-other',
+        institutionName: newAsset.category + ' Institution',
+        institutionCode: 'NEW',
+        institutionColor: '#0D9488',
+        accountOrFolioNumber: newAsset.accountOrFolioNumber || 'ACC-NEW-1',
+        grossValue: Number(newAsset.grossValue),
+        isLiability: false,
+        status: 'Located',
+        statusDetail: 'Newly registered asset under review',
+        nomineeName: newAsset.nomineeName,
+        nomineeStatus: 'Registered Nominee',
+        confidenceScore: 99.0,
+        claimId: `CLM-${Date.now().toString().slice(-2)}`,
+        docId: 'DOC-NEW',
+        docName: `${newAsset.name}_Certificate.pdf`,
+        docType: 'Asset Registration Mandate',
+        docSource: 'Direct Family Submission',
+        timelineChanges: [
+          { date: new Date().toISOString().slice(0, 10), event: 'Asset manually added to estate registry', source: 'Family Concierge' },
+        ],
+        extractionFields: [
+          { label: 'Asset Title', value: newAsset.name, verified: true },
+          { label: 'Gross Value', value: `₹${Number(newAsset.grossValue).toLocaleString()}`, verified: true },
+        ],
+        notes: 'Asset registered directly by legal heirs during estate intake.',
+        documentationRequired: ['Ownership Certificate / Statement', 'Death Certificate'],
+      };
+      setAssetsList((prev) => [newEnhanced, ...prev]);
+      setIsAddAssetModalOpen(false);
+      addToast({
+        type: 'success',
+        title: 'Asset Added',
+        message: `${newAsset.name} added to case registry.`,
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'risk',
+        title: 'Could Not Add Asset',
+        message: err.message || 'Error creating asset.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Update URL search parameters
   const updateFilter = (updates: Record<string, string | null>) => {
@@ -546,9 +705,9 @@ export const EstateAssetsPage: React.FC = () => {
     }
   };
 
-  // Filter and sort the 12 assets
+  // Filter and sort the assets
   const filteredAndSortedAssets = useMemo(() => {
-    return ENHANCED_ASSETS.filter((asset) => {
+    return assetsList.filter((asset) => {
       // Type Filter
       const matchesType =
         typeFilter === 'All'
@@ -584,7 +743,7 @@ export const EstateAssetsPage: React.FC = () => {
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [typeFilter, statusFilter, searchQuery, sortKey, sortOrder]);
+  }, [assetsList, typeFilter, statusFilter, searchQuery, sortKey, sortOrder]);
 
   // Overall Estate Totals
   const totalGrossAssets = useMemo(
@@ -677,16 +836,27 @@ export const EstateAssetsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Quick Summary Pill */}
-        <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-soft shrink-0">
-          <div className="text-left">
-            <div className="text-[10px] text-slate-400 uppercase font-semibold">Net Estate</div>
-            <div className="text-sm font-bold font-sans text-navy">₹2.84 Cr</div>
-          </div>
-          <div className="h-6 w-px bg-slate-200" />
-          <div className="text-left">
-            <div className="text-[10px] text-slate-400 uppercase font-semibold">Status</div>
-            <div className="text-xs font-semibold text-teal-700">12 of 12 Located</div>
+        {/* Quick Summary Pill & Add Asset CTA */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsAddAssetModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-navy text-white hover:bg-navy-light transition-all shadow-md"
+          >
+            <Plus className="w-4 h-4 text-teal-400" />
+            <span>Add Asset</span>
+          </button>
+
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-soft shrink-0">
+            <div className="text-left">
+              <div className="text-[10px] text-slate-400 uppercase font-semibold">Net Estate</div>
+              <div className="text-sm font-bold font-sans text-navy">₹2.84 Cr</div>
+            </div>
+            <div className="h-6 w-px bg-slate-200" />
+            <div className="text-left">
+              <div className="text-[10px] text-slate-400 uppercase font-semibold">Status</div>
+              <div className="text-xs font-semibold text-teal-700">12 of 12 Located</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1153,6 +1323,70 @@ export const EstateAssetsPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Nominee Share Allocation Editor (Must total 100%) */}
+              <div className="p-4 rounded-2xl bg-teal-50/60 border border-teal-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-navy">
+                    <Users className="w-4 h-4 text-teal-700" />
+                    <span>Registered Nominee Allocations</span>
+                  </div>
+                  <span
+                    className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${
+                      Number(nomineeShare) + Number(nominee2Share) === 100
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-rose-100 text-rose-800'
+                    }`}
+                  >
+                    Total: {Number(nomineeShare) + Number(nominee2Share)}%
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-slate-200">
+                    <span className="font-medium text-navy">Sunita Sharma (Spouse)</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={nomineeShare}
+                        onChange={(e) => setNomineeShare(Number(e.target.value))}
+                        className="w-16 px-2 py-1 text-center font-mono font-bold border border-slate-300 rounded-lg text-navy text-xs"
+                      />
+                      <span className="font-bold text-slate-500">%</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-slate-200">
+                    <span className="font-medium text-navy">Arjun Sharma (Son)</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={nominee2Share}
+                        onChange={(e) => setNominee2Share(Number(e.target.value))}
+                        className="w-16 px-2 py-1 text-center font-mono font-bold border border-slate-300 rounded-lg text-navy text-xs"
+                      />
+                      <span className="font-bold text-slate-500">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {nomineeError && (
+                  <p className="text-[11px] text-rose-600 font-medium">{nomineeError}</p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleSaveNominees}
+                  disabled={isSavingNominees}
+                  className="w-full py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white transition-colors shadow-sm"
+                >
+                  {isSavingNominees ? 'Saving...' : 'Save Nominees (Must Total 100%)'}
+                </button>
+              </div>
+
               {/* Special Notes */}
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed">
                 <strong className="text-navy">Asset Note: </strong>
@@ -1161,23 +1395,127 @@ export const EstateAssetsPage: React.FC = () => {
             </div>
 
             {/* Drawer Footer Actions */}
-            <div className="p-4 border-t border-slate-200 bg-white flex items-center justify-between gap-3 sticky bottom-0">
-              <button
-                type="button"
-                onClick={closeDrawer}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
-              >
-                Close
-              </button>
+            <div className="p-4 border-t border-slate-200 bg-white flex items-center justify-between gap-2 sticky bottom-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={closeDrawer}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  Close
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDeleteAsset}
+                  className="px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors flex items-center gap-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+              </div>
 
               <Link
                 to={`/case/${activeCaseId}/claims/${activeAsset.claimId}`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-navy hover:bg-navy-light text-white shadow-soft transition-all"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-navy hover:bg-navy-light text-white shadow-soft transition-all"
               >
                 <span>Open claim</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Asset Modal */}
+      {isAddAssetModalOpen && (
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-navy flex items-center gap-2">
+                <Plus className="w-4 h-4 text-teal-600" />
+                Add Estate Asset
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddAssetModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAsset} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-navy mb-1">Asset Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Kotak Mahindra Fixed Deposit"
+                  value={newAsset.name}
+                  onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-500 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-navy mb-1">Category</label>
+                  <select
+                    value={newAsset.category}
+                    onChange={(e) => setNewAsset({ ...newAsset, category: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+                  >
+                    <option value="Banking">Banking</option>
+                    <option value="Investments">Investments</option>
+                    <option value="Insurance">Insurance</option>
+                    <option value="Retirement">Retirement</option>
+                    <option value="Real Estate">Real Estate</option>
+                    <option value="Valuables & Movable">Valuables & Movable</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-navy mb-1">Gross Value (₹ INR)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={newAsset.grossValue}
+                    onChange={(e) => setNewAsset({ ...newAsset, grossValue: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-navy mb-1">Account / Folio Number</label>
+                <input
+                  type="text"
+                  placeholder="e.g. FD-0912-4418"
+                  value={newAsset.accountOrFolioNumber}
+                  onChange={(e) => setNewAsset({ ...newAsset, accountOrFolioNumber: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-teal-500 outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddAssetModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-navy text-white hover:bg-navy-light shadow-sm"
+                >
+                  {isSubmitting ? 'Adding...' : 'Add to Estate'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

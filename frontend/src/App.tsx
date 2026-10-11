@@ -24,6 +24,7 @@ import {
   ImpactPage,
   UnderTheHoodPage,
   ConsentAuditPage,
+  DevApiStatusPage,
 } from './pages';
 
 const queryClient = new QueryClient({
@@ -54,6 +55,7 @@ export function App() {
             <Route path="/how-it-works" element={<UnderTheHoodPage />} />
             <Route path="/under-the-hood" element={<UnderTheHoodPage />} />
             <Route path="/architecture" element={<UnderTheHoodPage />} />
+            <Route path="/dev/api-status" element={<DevApiStatusPage />} />
           </Route>
 
           {/* Family Case Settlement Workspace by Case ID (e.g. /case/:caseId/start) */}

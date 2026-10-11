@@ -29,7 +29,13 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   // Normalize string variant
   let resolvedVariant = variant;
   const lower = label.toLowerCase();
-  if (lower.includes('settled') || lower.includes('verified') || lower.includes('approved')) {
+  if (lower.includes('synthetic')) {
+    resolvedVariant = 'synthetic' as any;
+  } else if (lower.includes('simulated')) {
+    resolvedVariant = 'simulated' as any;
+  } else if (lower.includes('degraded')) {
+    resolvedVariant = 'degraded' as any;
+  } else if (lower.includes('settled') || lower.includes('verified') || lower.includes('approved')) {
     resolvedVariant = 'success';
   } else if (lower.includes('dispute') || lower.includes('risk') || lower.includes('fraud') || lower.includes('critical')) {
     resolvedVariant = 'risk';
@@ -40,6 +46,24 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   }
 
   const variantStyles: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+    synthetic: {
+      bg: 'bg-purple-50',
+      text: 'text-purple-800',
+      border: 'border-purple-200',
+      dot: 'bg-purple-500',
+    },
+    simulated: {
+      bg: 'bg-indigo-50',
+      text: 'text-indigo-800',
+      border: 'border-indigo-200',
+      dot: 'bg-indigo-500',
+    },
+    degraded: {
+      bg: 'bg-amber-100',
+      text: 'text-amber-900',
+      border: 'border-amber-300',
+      dot: 'bg-amber-600',
+    },
     success: {
       bg: 'bg-emerald-50',
       text: 'text-emerald-800',

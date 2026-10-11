@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, NavLink, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -19,7 +19,10 @@ import {
   Award,
   Compass,
   ShieldCheck,
-  Fingerprint
+  Fingerprint,
+  RotateCcw,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
@@ -32,6 +35,9 @@ import {
 } from '@/components';
 import { useVirasatStore, CaseScenario } from '@/store/useVirasatStore';
 import { baseCaseData } from '@/mocks/caseData';
+import { useCaseStream } from '@/api/useCaseStream';
+import { estateService } from '@/api/estateService';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const CaseLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -44,6 +50,12 @@ export const CaseLayout: React.FC = () => {
     setTourActive, 
     addToast 
   } = useVirasatStore();
+
+  const queryClient = useQueryClient();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   const { caseId: paramCaseId } = useParams();
   const [searchParams] = useSearchParams();
@@ -61,6 +73,43 @@ export const CaseLayout: React.FC = () => {
 
   const activeCaseId = paramCaseId || caseId || baseCaseData.id;
   const basePath = paramCaseId ? `/case/${paramCaseId}` : '/case';
+
+  // Bi-directional case SSE stream
+  const { isStale } = useCaseStream(activeCaseId);
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleResetData = async () => {
+    setIsResetting(true);
+    try {
+      await estateService.resetCase(activeCaseId);
+      addToast({
+        type: 'success',
+        title: 'Case Data Reset',
+        message: 'Benchmark estate data successfully restored.',
+      });
+      setShowResetConfirm(false);
+      setProfileMenuOpen(false);
+      queryClient.invalidateQueries();
+    } catch (err: any) {
+      addToast({
+        type: 'risk',
+        title: 'Reset Failed',
+        message: err.message || 'Could not reset case data.',
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const navItems = [
     { label: 'Overview', path: `${basePath}/overview`, icon: LayoutDashboard },
@@ -295,6 +344,14 @@ export const CaseLayout: React.FC = () => {
           </div>
         )}
 
+        {/* Bi-Temporal / Case SSE Stale Bar */}
+        {isStale && (
+          <div className="bg-amber-500 text-white font-medium px-4 py-1.5 text-xs text-center flex items-center justify-center gap-2 animate-pulse shadow-xs z-30">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            <span>Data changed, updating in background...</span>
+          </div>
+        )}
+
         {/* Top Bar */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 md:px-8 py-3.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -348,20 +405,89 @@ export const CaseLayout: React.FC = () => {
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white" />
             </button>
 
-            {/* User Profile Avatar */}
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-              <img
-                src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80"
-                alt="Sunita Sharma"
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-teal-500/40"
-              />
-              <div className="hidden xl:flex flex-col text-left">
-                <span className="text-xs font-semibold text-navy leading-none">Sunita Sharma</span>
-                <span className="text-[10px] text-slate-400">Primary Claimant</span>
-              </div>
+            {/* User Profile Avatar & Dropdown Menu */}
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                className="flex items-center gap-2 pl-2 border-l border-slate-200 hover:opacity-80 transition-opacity"
+                aria-label="User profile options"
+              >
+                <img
+                  src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80"
+                  alt="Sunita Sharma"
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-teal-500/40"
+                />
+                <div className="hidden xl:flex flex-col text-left">
+                  <span className="text-xs font-semibold text-navy leading-none">Sunita Sharma</span>
+                  <span className="text-[10px] text-slate-400">Primary Claimant</span>
+                </div>
+              </button>
+
+              {/* Profile Dropdown */}
+              {profileMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs animate-in fade-in zoom-in-95">
+                  <div className="px-3 py-2 border-b border-slate-100">
+                    <p className="font-semibold text-navy">Sunita Sharma</p>
+                    <p className="text-[11px] text-slate-500">Class-I Primary Legal Heir</p>
+                    <p className="text-[10px] text-teal-600 font-mono mt-0.5">{activeCaseId}</p>
+                  </div>
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setShowResetConfirm(true);
+                      }}
+                      className="w-full px-3 py-2 text-left text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors font-medium"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reset demo data</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
+
+        {/* Reset Demo Data Confirmation Dialog */}
+        {showResetConfirm && (
+          <div className="fixed inset-0 bg-navy/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-3 text-rose-600 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                  <AlertCircle className="w-6 h-6 text-rose-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-navy">Reset Demo Data?</h3>
+                  <p className="text-xs text-slate-500">Restore benchmark case baseline</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+                This will reset all asset nominees, added heirs, simulated bank approvals, and documents for{' '}
+                <strong className="text-navy">{activeCaseId}</strong> back to the initial benchmark dataset.
+              </p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirm(false)}
+                  disabled={isResetting}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetData}
+                  disabled={isResetting}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm flex items-center gap-2 transition-colors"
+                >
+                  {isResetting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isResetting ? 'Resetting...' : 'Confirm Reset'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content Outlet */}
         <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto flex flex-col">
