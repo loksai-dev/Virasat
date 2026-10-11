@@ -1,0 +1,9 @@
+{
+  "doc_type": "AFFIDAVIT",
+  "claimant": "Vikram Sharma",
+  "inconsistencies": {
+    "name_typo": "Rameshh Sharma",
+    "fraudulent_dod": "2026-03-19",
+    "notary_prior_to_death": "2026-03-10"
+  }
+}

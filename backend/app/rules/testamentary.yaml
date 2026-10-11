@@ -1,0 +1,11 @@
+regime: testamentary
+rules_version: 1
+needs_legal_review: true
+rules:
+  - {id: WILL-APPLY, text: "Apply the will when status is REGISTERED or VERIFIED. DRAFT or UNVERIFIED wills apply only when scenario=with_will.", apply_statuses: [REGISTERED, VERIFIED], scenario_only_statuses: [DRAFT, UNVERIFIED], notes: {not_applied: WILL_NOT_APPLIED, applied: WILL_APPLIED, applied_by_scenario: WILL_APPLIED_BY_SCENARIO}}
+  - {id: WILL-SPECIFIC, text: "Asset-specific bequests (asset_id set) are allocated first; several beneficiaries of one asset split by their share_pct."}
+  - {id: WILL-RESIDUARY, text: "Percentage bequests with no asset apply to the remaining succession-route assets."}
+  - {id: WILL-PARTIAL-INTESTACY, text: "Any residuary percentage not covered by the will passes to the intestate heirs under the regime rules.", note_code: PARTIAL_INTESTACY}
+  - {id: WILL-NO-FORCED-HEIRSHIP, clause_ids: [ISA-1925-TESTAMENTARY], text: "Informational: no mandatory share is reserved for relatives left out by a valid will.", informational: true}
+  - {id: WILL-VALIDATION, text: "Residuary total must be > 0 and <= 100; every beneficiary and asset must exist; an asset cannot be bequeathed in total more than 100 percent.", error_codes: [WILL_INVALID_TOTAL, WILL_UNKNOWN_BENEFICIARY, WILL_UNKNOWN_ASSET, WILL_DUPLICATE_ASSET]}
+  - {id: WILL-FORMALITIES-NOTE, clause_ids: [ISA-1925-WILL-FORMALITIES], text: "Informational: validity depends on execution formalities; the engine never decides validity, it only reports status.", informational: true}

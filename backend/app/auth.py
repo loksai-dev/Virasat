@@ -44,10 +44,12 @@ async def get_current_uid(
 
     token = parts[1]
 
-    # Allow LOCAL_DEV_UID bypass only when DEMO_MODE is true and the variable is set (for tests)
-    if settings.DEMO_MODE and settings.LOCAL_DEV_UID:
-        if token == settings.LOCAL_DEV_UID or token in ("local-dev", "test-token", "dev"):
+    # Allow LOCAL_DEV_UID and test-user/dev-user token bypass when DEMO_MODE is true
+    if settings.DEMO_MODE:
+        if settings.LOCAL_DEV_UID and (token == settings.LOCAL_DEV_UID or token in ("local-dev", "test-token", "dev")):
             return settings.LOCAL_DEV_UID
+        if token.startswith("test-user-") or token.startswith("dev-user-") or token.startswith("uid-"):
+            return token
 
     ensure_firebase_initialized()
 

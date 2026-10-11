@@ -1,70 +1,85 @@
+"""Assets routes for estate asset and bi-temporal nominee management."""
 
-from fastapi import APIRouter
+from typing import Any
+
+from fastapi import APIRouter, Body, Header
 
 from app.deps import CurrentUser
-from app.errors import NotImplementedException
-from app.models.schemas import (
-    AssetCreateRequest,
-    AssetResponse,
-    AssetUpdateRequest,
-    NomineesUpdateRequest,
+from app.services.case_service import (
+    create_asset,
+    delete_asset,
+    get_asset,
+    list_assets,
+    update_asset,
+    update_nominees,
 )
 
 router = APIRouter(tags=["Assets"])
 
 
-@router.get("/cases/{id}/assets", response_model=list[AssetResponse])
-async def list_assets(
+@router.get("/cases/{id}/assets")
+async def list_case_assets(
     id: str,
     uid: str = CurrentUser,
-):
-    """List all assets for a case."""
-    raise NotImplementedException()
+) -> list[dict[str, Any]]:
+    """List all assets for a case with current active nominees."""
+    return list_assets(case_id=id, uid=uid)
 
 
-@router.post("/cases/{id}/assets", response_model=AssetResponse, status_code=201)
-async def create_asset(
+@router.post("/cases/{id}/assets", status_code=201)
+async def add_asset_to_case(
     id: str,
-    body: AssetCreateRequest,
+    body: dict[str, Any] = Body(...),
+    if_match: str | None = Header(None, alias="If-Match"),
     uid: str = CurrentUser,
-):
-    """Add an asset to a case."""
-    raise NotImplementedException()
+) -> dict[str, Any]:
+    """Add an asset to an estate settlement case."""
+    return create_asset(case_id=id, data=body, uid=uid, if_match=if_match)
 
 
-@router.get("/assets/{aid}", response_model=AssetResponse)
-async def get_asset(
+@router.get("/assets/{aid}")
+async def get_single_asset(
     aid: str,
     uid: str = CurrentUser,
-):
+) -> dict[str, Any]:
     """Get details of a specific asset."""
-    raise NotImplementedException()
+    return get_asset(asset_id=aid, uid=uid)
 
 
-@router.patch("/assets/{aid}", response_model=AssetResponse)
-async def update_asset(
+@router.patch("/assets/{aid}")
+async def update_asset_details(
     aid: str,
-    body: AssetUpdateRequest,
+    body: dict[str, Any] = Body(...),
+    if_match: str | None = Header(None, alias="If-Match"),
     uid: str = CurrentUser,
-):
+) -> dict[str, Any]:
     """Update details of a specific asset."""
-    raise NotImplementedException()
+    return update_asset(asset_id=aid, updates=body, uid=uid, if_match=if_match)
 
 
 @router.delete("/assets/{aid}")
-async def delete_asset(
+async def delete_asset_from_case(
     aid: str,
+    if_match: str | None = Header(None, alias="If-Match"),
     uid: str = CurrentUser,
-):
-    """Delete an asset."""
-    raise NotImplementedException()
+) -> dict[str, Any]:
+    """Soft delete an asset and close all associated nominee and ownership edges."""
+    return delete_asset(asset_id=aid, uid=uid, if_match=if_match)
 
 
-@router.put("/assets/{aid}/nominees", response_model=AssetResponse)
-async def update_nominees(
+@router.put("/assets/{aid}/nominees")
+async def update_asset_nominees(
     aid: str,
-    body: NomineesUpdateRequest,
+    body: Any = Body(...),
+    if_match: str | None = Header(None, alias="If-Match"),
     uid: str = CurrentUser,
-):
-    """Update nominees for an asset."""
-    raise NotImplementedException()
+) -> dict[str, Any]:
+    """Atomically replace the full list of nominees for an asset, superseding previous edges."""
+    if isinstance(body, dict):
+        nominees_list = body.get("nominees", [])
+    elif isinstance(body, list):
+        nominees_list = body
+    else:
+        nominees_list = []
+
+    return update_nominees(asset_id=aid, nominees_list=nominees_list, uid=uid, if_match=if_match)

@@ -1,26 +1,28 @@
+"""Audit routes for cryptographic tamper-evident SHA-256 hash chain verification."""
+
+from typing import Any
 
 from fastapi import APIRouter
 
 from app.deps import CurrentUser
-from app.errors import NotImplementedException
-from app.models.schemas import AuditLogEntry, AuditVerifyResponse
+from app.services.case_service import get_audit, verify_audit
 
 router = APIRouter(tags=["Audit"])
 
 
-@router.get("/cases/{id}/audit", response_model=list[AuditLogEntry])
-async def get_audit_trail(
+@router.get("/cases/{id}/audit")
+async def get_case_audit_trail(
     id: str,
     uid: str = CurrentUser,
-):
+) -> list[dict[str, Any]]:
     """Retrieve hash-chained tamper-evident audit log entries for a case."""
-    raise NotImplementedException()
+    return get_audit(case_id=id, uid=uid)
 
 
-@router.get("/cases/{id}/audit/verify", response_model=AuditVerifyResponse)
-async def verify_audit_chain(
+@router.get("/cases/{id}/audit/verify")
+async def verify_case_audit_chain(
     id: str,
     uid: str = CurrentUser,
-):
+) -> dict[str, Any]:
     """Cryptographically verify integrity of the SHA-256 audit log hash chain."""
-    raise NotImplementedException()
+    return verify_audit(case_id=id, uid=uid)

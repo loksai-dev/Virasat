@@ -1,0 +1,23 @@
+rules_version: 1
+needs_legal_review: true
+defaults: {route: SUCCESSION}
+types:
+  SAVINGS: {route: NOMINEE_PAYOUT, nominee_effect: custodian}
+  FD:      {route: NOMINEE_PAYOUT, nominee_effect: custodian}
+  DEMAT:   {route: NOMINEE_PAYOUT, nominee_effect: custodian}
+  MF:      {route: NOMINEE_PAYOUT, nominee_effect: custodian}
+  PPF:     {route: NOMINEE_PAYOUT, nominee_effect: custodian}
+  EPF:     {route: NOMINEE_PAYOUT, nominee_effect: custodian}
+  LOCKER:  {route: NOMINEE_PAYOUT, nominee_effect: custodian}
+  POLICY:  {route: NOMINEE_PAYOUT, nominee_effect: beneficiary}
+  PROPERTY: {route: SUCCESSION}
+  VEHICLE:  {route: SUCCESSION}
+  LOAN:     {route: LIABILITY}
+semantics:
+  nominee_valid_when: "nominee edge valid at the date of death (valid_at = dod) and recorded as of known_at"
+  custodian: "Institution may pay the nominee, but beneficial ownership follows succession/will. Emit NOMINEE_DIFFERS_FROM_SUCCESSION:<asset> (informational, not a dispute) when payee shares differ from beneficial shares."
+  beneficiary: "Asset leaves the succession pool; nominee share_pct are the beneficial shares."
+  no_valid_nominee: "Route becomes SUCCESSION; the claim needs legal-heir or succession documents."
+liabilities:
+  apportion: pro_rata_to_positive_succession_value
+  text: "Each liability is shared by heirs in proportion to the positive succession-route value each receives. Beneficiary-route assets are outside the pool. Per-person totals still reconcile to the net estate."

@@ -1,0 +1,8 @@
+{
+  "doc_type": "BANK_STATEMENT",
+  "account_masked": "\u20268891",
+  "balance": 920000,
+  "stale_print_date": "2023-12-31",
+  "stale_nominee": "Sunita Sharma",
+  "stale_pct": 100
+}

@@ -1,40 +1,42 @@
-from fastapi import APIRouter
+"""Relationships routes for bi-temporal kinship edges."""
+
+from typing import Any
+
+from fastapi import APIRouter, Body, Header
 
 from app.deps import CurrentUser
-from app.errors import NotImplementedException
-from app.models.schemas import (
-    RelationshipCreateRequest,
-    RelationshipResponse,
-    RelationshipUpdateRequest,
-)
+from app.services.case_service import create_relationship, delete_relationship, update_relationship
 
 router = APIRouter(tags=["Relations"])
 
 
-@router.post("/cases/{id}/relationships", response_model=RelationshipResponse, status_code=201)
-async def create_relationship(
+@router.post("/cases/{id}/relationships", status_code=201)
+async def create_new_relationship(
     id: str,
-    body: RelationshipCreateRequest,
+    body: dict[str, Any] = Body(...),
+    if_match: str | None = Header(None, alias="If-Match"),
     uid: str = CurrentUser,
-):
+) -> dict[str, Any]:
     """Create a bi-temporal relationship between two individuals."""
-    raise NotImplementedException()
+    return create_relationship(case_id=id, data=body, uid=uid, if_match=if_match)
 
 
-@router.patch("/relationships/{rid}", response_model=RelationshipResponse)
-async def update_relationship(
+@router.patch("/relationships/{rid}")
+async def update_existing_relationship(
     rid: str,
-    body: RelationshipUpdateRequest,
+    body: dict[str, Any] = Body(...),
+    if_match: str | None = Header(None, alias="If-Match"),
     uid: str = CurrentUser,
-):
-    """Update a bi-temporal relationship."""
-    raise NotImplementedException()
+) -> dict[str, Any]:
+    """Supersede a bi-temporal relationship (closing old edge, inserting new edge)."""
+    return update_relationship(rid=rid, data=body, uid=uid, if_match=if_match)
 
 
 @router.delete("/relationships/{rid}")
-async def delete_relationship(
+async def delete_existing_relationship(
     rid: str,
+    if_match: str | None = Header(None, alias="If-Match"),
     uid: str = CurrentUser,
-):
-    """Close/delete a bi-temporal relationship."""
-    raise NotImplementedException()
+) -> dict[str, Any]:
+    """Close an active bi-temporal relationship without overwriting or hard-deleting."""
+    return delete_relationship(rid=rid, uid=uid, if_match=if_match)

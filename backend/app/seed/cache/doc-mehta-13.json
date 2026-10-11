@@ -1,0 +1,9 @@
+{
+  "doc_type": "WILL",
+  "status": "REGISTERED",
+  "executed_on": "2022-08-17",
+  "bequests": {
+    "apartment": "Rekha 100%",
+    "residuary": "Rekha 60%, Rohan 40%"
+  }
+}

@@ -1,0 +1,49 @@
+defaults: {law: hindu, deceased_sex: M, scenario: current, will: null, assets: [{id: P, type: PROPERTY, value_inr: 10000000}], tolerance_pct: 0.0001, tolerance_inr: 0.02}
+cases:
+- {id: G01, people: [S:SPOUSE], expect_pct: {S: 100}}
+- {id: G02, people: [S:SPOUSE, A:SON], expect_pct: {S: 50, A: 50}}
+- {id: G03, people: [S:SPOUSE, A:SON, B:SON, D:DAUGHTER], expect_pct: {S: 25, A: 25, B: 25, D: 25}}
+- {id: G04, people: [S:SPOUSE, A:SON, D:DAUGHTER, M:MOTHER], expect_pct: {S: 25, A: 25, D: 25, M: 25}}
+- {id: G05, people: [S:SPOUSE, A:SON, D:DAUGHTER, M:MOTHER, V:BROTHER], expect_pct: {S: 25, A: 25, D: 25, M: 25, V: 0}, expect_notes: ["CLASS_II_EXCLUDED:V"]}
+- {id: G06, people: [A:SON, D:DAUGHTER], expect_pct: {A: 50, D: 50}}
+- {id: G07, people: [M:MOTHER], expect_pct: {M: 100}}
+- {id: G08, people: [M:MOTHER, F:FATHER], expect_pct: {M: 100, F: 0}, expect_notes: ["CLASS_II_EXCLUDED:F"]}
+- {id: G09, people: [F:FATHER, V:BROTHER], expect_pct: {F: 100, V: 0}}
+- {id: G10, people: [V:BROTHER, X:SISTER], expect_pct: {V: 50, X: 50}}
+- {id: G11, people: [S:SPOUSE, A:SON, B:SON:dead, W:SPOUSE_OF:B, C1:CHILD_OF:B, C2:CHILD_OF:B], expect_pct: {S: 33.3333, A: 33.3333, W: 11.1111, C1: 11.1111, C2: 11.1111}}
+- {id: G12, people: [S:SPOUSE, D:DAUGHTER:dead, C1:CHILD_OF:D, C2:CHILD_OF:D], expect_pct: {S: 50, C1: 25, C2: 25}}
+- {id: G13, people: [S:SPOUSE, D:DAUGHTER, B:SON:dead], expect_pct: {S: 50, D: 50}}
+- {id: G14, people: [B:SON:dead, C1:CHILD_OF:B, C2:CHILD_OF:B], expect_pct: {C1: 50, C2: 50}}
+- {id: G15, people: [A:SON, B:SON:dead, W:SPOUSE_OF:B], expect_pct: {A: 50, W: 50}}
+- {id: G16, people: [S:SPOUSE, B:SON:dead, C1:CHILD_OF:B:dead, G:CHILD_OF:C1], expect_pct: {S: 50, G: 50}}
+- {id: G17, people: [S1:SPOUSE, S2:SPOUSE, A:SON], expect_pct: {S1: 25, S2: 25, A: 50}}
+- {id: G18, people: [S:SPOUSE, A:SON], will: {status: REGISTERED, residuary: {A: 100}}, expect_pct: {A: 100, S: 0}, expect_notes: ["WILL_APPLIED"]}
+- {id: G19, people: [S:SPOUSE, A:SON], will: {status: REGISTERED, residuary: {S: 60, A: 40}}, expect_pct: {S: 60, A: 40}}
+- {id: G20, people: [S:SPOUSE, A:SON], will: {status: DRAFT, residuary: {S: 60, A: 40}}, expect_pct: {S: 50, A: 50}, expect_notes: ["WILL_NOT_APPLIED"]}
+- {id: G21, people: [S:SPOUSE, A:SON], scenario: with_will, will: {status: DRAFT, residuary: {S: 60, A: 40}}, expect_pct: {S: 60, A: 40}, expect_notes: ["WILL_APPLIED_BY_SCENARIO"]}
+- {id: G22, people: [S:SPOUSE, A:SON, F:BENEFICIARY], will: {status: REGISTERED, residuary: {F: 80}}, expect_pct: {F: 80, S: 10, A: 10}, expect_notes: ["PARTIAL_INTESTACY"]}
+- {id: G23, people: [S:SPOUSE, A:SON], will: {status: REGISTERED, residuary: {S: 70, A: 50}}, expect_error: WILL_INVALID_TOTAL}
+- id: G24   # Mehta
+  people: [S:SPOUSE, A:SON]     # S = Rekha, A = Rohan
+  assets: [{id: KOTAK, type: SAVINGS, value_inr: 640000, nominees: [{p: S, pct: 100}]}, {id: FD, type: FD, value_inr: 2000000}, {id: LIFE, type: POLICY, value_inr: 3000000, nominees: [{p: S, pct: 100}]}, {id: MF, type: MF, value_inr: 1260000, nominees: [{p: A, pct: 100}]}, {id: PPF, type: PPF, value_inr: 900000, nominees: [{p: A, pct: 100}]}, {id: APT, type: PROPERTY, value_inr: 8500000}, {id: CAR, type: VEHICLE, value_inr: 600000}, {id: CC, type: LOAN, value_inr: -120000}]
+  will: {status: REGISTERED, specific: [{asset: APT, p: S, pct: 100}], residuary: {S: 60, A: 40}}
+  expect_amounts_inr: {S: 14638647.48, A: 2141352.52}
+  expect_total_inr: 16780000
+  expect_notes: ["NOMINEE_DIFFERS_FROM_SUCCESSION:KOTAK", "NOMINEE_DIFFERS_FROM_SUCCESSION:PPF"]
+- id: G25   # Sharma, no will
+  people: [S:SPOUSE, A:SON, D:DAUGHTER, M:MOTHER, V:BROTHER]
+  assets: [{id: SBI, type: SAVINGS, value_inr: 1850000, nominees: [{p: S, pct: 100}]}, {id: HDFC, type: SAVINGS, value_inr: 920000, nominees: [{p: S, pct: 50}, {p: V, pct: 50}]}, {id: FD, type: FD, value_inr: 4500000}, {id: DEMAT, type: DEMAT, value_inr: 2280000}, {id: MF, type: MF, value_inr: 3150000}, {id: LIC, type: POLICY, value_inr: 2500000, nominees: [{p: S, pct: 100}]}, {id: EPF, type: EPF, value_inr: 1960000, nominees: [{p: S, pct: 100}]}, {id: PPF, type: PPF, value_inr: 1420000, nominees: [{p: A, pct: 100}]}, {id: LOCK, type: LOCKER, value_inr: 0}, {id: APT, type: PROPERTY, value_inr: 15000000}, {id: CAR, type: VEHICLE, value_inr: 450000}, {id: LOAN, type: LOAN, value_inr: -5630000}]
+  expect_amounts_inr: {S: 8975000, A: 6475000, D: 6475000, M: 6475000, V: 0}
+  expect_total_inr: 28400000
+  expect_notes: ["CLASS_II_EXCLUDED:V", "NOMINEE_DIFFERS_FROM_SUCCESSION:HDFC"]
+- id: G26   # Sharma, draft will applied by scenario
+  people: [S:SPOUSE, A:SON, D:DAUGHTER, M:MOTHER, V:BROTHER]
+  scenario: with_will
+  assets: SAME_AS_G25
+  will: {status: DRAFT, specific: [{asset: APT, p: A, pct: 50}, {asset: APT, p: D, pct: 50}], residuary: {S: 100}}
+  expect_amounts_inr: {S: 16078401.52, A: 6160799.24, D: 6160799.24, M: 0, V: 0}
+  expect_total_inr: 28400000
+- {id: G27, people: [S:SPOUSE, A:SON], assets: [{id: B1, type: SAVINGS, value_inr: 1000000, nominees: [{p: A, pct: 100}]}], expect_pct: {S: 50, A: 50}, expect_payee: {B1: {A: 100}}, expect_notes: ["NOMINEE_DIFFERS_FROM_SUCCESSION:B1"]}
+- {id: G28, people: [S:SPOUSE, A:SON], assets: [{id: P, type: PROPERTY, value_inr: 10000000}, {id: L, type: POLICY, value_inr: 2000000, nominees: [{p: A, pct: 100}]}], expect_amounts_inr: {S: 5000000, A: 7000000}}
+- {id: G29, law: muslim, people: [S:SPOUSE, A:SON], expect_status: regime_not_supported}
+- {id: G30, people: [S:SPOUSE, A:SON, D:DAUGHTER], expect_amounts_inr: {A: 3333333.34, D: 3333333.33, S: 3333333.33}, expect_total_inr: 10000000}

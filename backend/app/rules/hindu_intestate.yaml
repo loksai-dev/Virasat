@@ -1,0 +1,30 @@
+regime: hindu
+rules_version: 1
+needs_legal_review: true
+scope:
+  deceased_sex: M
+  assumptions:
+    - "Estate is the deceased's separate/self-acquired property."
+    - "asset.est_value_inr is the deceased's own share (joint ownership already netted out)."
+  unsupported:
+    - {code: FEMALE_INTESTATE, message: "Succession to a Hindu female intestate follows different rules; not encoded in v1."}
+    - {code: COPARCENARY_OR_HUF_INTEREST, message: "Coparcenary/HUF interests follow different rules; not encoded in v1."}
+    - {code: NO_MODELLED_HEIRS, message: "No Class I or modelled Class II heirs; agnate/cognate/escheat rules are not modelled. Needs manual review."}
+rules:
+  - {id: HIN-ORDER, clause_ids: [HSA-1956-S8, HSA-1956-S9], text: "Class I heirs first; if none, Class II; earlier Class II entries exclude later ones."}
+  - {id: HIN-CLASS1-MEMBERS, clause_ids: [HSA-1956-S8, HSA-1956-SCHEDULE], text: "Class I as modelled: spouse (widow), son, daughter, mother; descendants of a predeceased son or daughter (recursively); widow of a predeceased son."}
+  - {id: HIN-S10-R1, clause_ids: [HSA-1956-S10], text: "The widow (or all widows together) take one share.", units: 1, who: SPOUSE, grouping: all_together}
+  - {id: HIN-S10-R2, clause_ids: [HSA-1956-S10], text: "Each surviving son, each surviving daughter and the mother takes one share.", units: 1, who: [SON, DAUGHTER, MOTHER], grouping: per_head}
+  - {id: HIN-S10-R3, clause_ids: [HSA-1956-S10], text: "The heirs in the branch of each predeceased son or predeceased daughter take one share between them.", units: 1, who: BRANCH_OF_PREDECEASED_CHILD, grouping: per_branch, drop_if_branch_has_no_heirs: true}
+  - id: HIN-S10-R4
+    clause_ids: [HSA-1956-S10]
+    text: "Within a branch: for a predeceased son, his widow(s) together and each surviving child (and each predeceased child's own branch) share equally; for a predeceased daughter, her surviving children (and their branches) share equally. Apply recursively."
+    branch_members: {PREDECEASED_SON: [SPOUSE_AS_ONE_UNIT, LIVING_CHILD, CHILD_BRANCH], PREDECEASED_DAUGHTER: [LIVING_CHILD, CHILD_BRANCH]}
+class_II:
+  note: "Simplified: only entries 1 and 2 are modelled."
+  rule_id: HIN-CLASS2
+  clause_ids: [HSA-1956-S8, HSA-1956-S9, HSA-1956-SCHEDULE]
+  entries: [{entry: 1, members: [FATHER]}, {entry: 2, members: [BROTHER, SISTER]}]
+  distribution: "The first entry with any living member takes everything, equally per head within the entry."
+output_notes:
+  - {code: CLASS_II_EXCLUDED, template: "{person} is a Class II relative and is excluded while any Class I heir exists."}
