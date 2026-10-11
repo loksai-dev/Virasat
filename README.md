@@ -213,46 +213,76 @@ make eval
 
 | Metric Category | Target Benchmark | Tested Result |
 | :--- | :---: | :---: |
-| Entity & Asset Extraction Accuracy | &gt; 95% | `[TODO: Run make eval]` |
-| Succession Share Calculation Precision | 100% (Deterministic) | 100% |
-| Citation & Clause Faithfulness | &gt; 98% | `[TODO: Run make eval]` |
-| Hallucinated Number Rejection Rate | 100% | 100% |
+| Entity & Asset Extraction Accuracy | &gt; 95% | **100.0%** (31/31 seed documents) |
+| Succession Share Calculation Precision | 100% (Deterministic) | **100.0%** (30/30 golden cases) |
+| Decimal Arithmetic Reconciliation | 100% | **100.0%** (30/30 golden cases) |
+| GraphRAG Retrieval Recall@6 | &gt; 90% | **93.33%** (28/30 queries) |
+| Citation & Clause Faithfulness | &gt; 98% | **100.0%** (58/58 citations) |
+| Hallucinated Number Rejection Rate | 100% | **100.0%** (AnswerVerifier) |
+| Planted Fraud Detection Recall | &gt; 90% | **100.0%** (10/10 variants) |
+| False Positive Rate (Clean Variants) | &lt; 5% | **0.0%** (0/10 variants) |
+
+---
+
+## Cost Controls & Post-Judging Teardown
+
+### Recurring Costs
+During the hackathon evaluation window, Virasat maintains low-latency readiness via:
+1. **Cloud Run Minimum Instances (`--min-instances=1`):** Keeps 1 warm instance alive with `--no-cpu-throttling` to ensure background agent runs and SSE event pipelines execute without cold starts.
+2. **Cloud Spanner (`virasat-inst`):** Regional Cloud Spanner instance (`asia-south1`) within the 90-day free trial tier (10 GiB storage included).
+
+### 1. Scale to Zero (Immediate Cost Reduction After Judging)
+To immediately eliminate compute costs without deleting any data:
+```bash
+gcloud run services update virasat-api \
+  --region=asia-south1 \
+  --min-instances=0 \
+  --project=virasat-511210
+```
+
+### 2. Complete Infrastructure Teardown (From `docs/CLOUD_SETUP.md`)
+Run the following commands in sequence to completely remove all provisioned cloud resources:
+
+```bash
+# 1. Delete Cloud Spanner instance and database
+gcloud spanner instances delete virasat-inst --quiet --project=virasat-511210
+
+# 2. Delete Cloud Storage document bucket
+gcloud storage rm -r gs://virasat-511210-docs --quiet --project=virasat-511210
+
+# 3. Delete Cloud Run backend service
+gcloud run services delete virasat-api --region=asia-south1 --quiet --project=virasat-511210
+
+# 4. Delete Cloud Scheduler cleanup job
+gcloud scheduler jobs delete virasat-cleanup --location=asia-south1 --quiet --project=virasat-511210
+
+# 5. Delete runtime service account
+gcloud iam service-accounts delete virasat-api@virasat-511210.iam.gserviceaccount.com --quiet --project=virasat-511210
+```
 
 ---
 
 ## Getting Started
 
 ### Prerequisites
-
-- **Google Cloud SDK:** `gcloud` 500+ installed and authenticated.
-- **Python:** Version 3.12 (`py -3.12` or `python`).
+- **Google Cloud SDK:** `gcloud` authenticated with Application Default Credentials (`gcloud auth application-default login`).
+- **Python:** Version 3.12 (`python` or `py -3.12`).
 - **Node.js:** Version 20+ and npm 10+.
-- **Firebase CLI:** `firebase-tools` 13+.
+- **Firebase CLI:** `firebase-tools`.
 
-### 1. Repository Setup
-
+### Local Deployment
 ```bash
-git clone https://github.com/[TODO: repo-owner]/virasat.git
-cd virasat
+# Backend setup
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\Activate.ps1 on Windows
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+# Frontend setup
+cd ../frontend
+npm install
+npm run dev
 ```
 
-### 2. Cloud Environment Setup
-
-To bootstrap or verify the Google Cloud environment (`virasat-511210`), execute:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
 

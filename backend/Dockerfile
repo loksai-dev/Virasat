@@ -14,6 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Create non-root user for security hardening
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
 # Install pinned Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -21,6 +24,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy backend application source
 COPY . .
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
 
 # Cloud Run injects $PORT environment variable
 EXPOSE 8000

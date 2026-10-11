@@ -139,6 +139,82 @@ SHARMA_DOC_ASSET_MAP = {
     },
 }
 
+# Canonical mapping of document types and filenames to asset archetypes for Mehta scenario
+MEHTA_DOC_ASSET_MAP = {
+    "05": {
+        "type": "SAVINGS",
+        "institution_id": "inst-kotak",
+        "label": "Kotak Mahindra Savings Account",
+        "account_ref_masked": "…9120",
+        "est_value_inr": Decimal("640000"),
+        "ownership": "SOLE",
+        "nominee_name": "Rekha Mehta",
+        "nominee_share": 100.0,
+    },
+    "06": {
+        "type": "FD",
+        "institution_id": "inst-bob",
+        "label": "Bank of Baroda Fixed Deposit",
+        "account_ref_masked": "…4410",
+        "est_value_inr": Decimal("2000000"),
+        "ownership": "SOLE",
+    },
+    "07": {
+        "type": "POLICY",
+        "institution_id": "inst-hdfc-life",
+        "label": "HDFC Life Term Insurance",
+        "account_ref_masked": "…8841",
+        "est_value_inr": Decimal("3000000"),
+        "ownership": "SOLE",
+        "nominee_name": "Rekha Mehta",
+        "nominee_share": 100.0,
+    },
+    "08": {
+        "type": "MF",
+        "institution_id": "inst-nippon",
+        "label": "Nippon India Growth Fund",
+        "account_ref_masked": "…3319",
+        "est_value_inr": Decimal("1260000"),
+        "ownership": "SOLE",
+        "nominee_name": "Rohan Mehta",
+        "nominee_share": 100.0,
+    },
+    "09": {
+        "type": "PPF",
+        "institution_id": "inst-sbi",
+        "label": "SBI Public Provident Fund",
+        "account_ref_masked": "…6120",
+        "est_value_inr": Decimal("900000"),
+        "ownership": "SOLE",
+        "nominee_name": "Rohan Mehta",
+        "nominee_share": 100.0,
+    },
+    "10": {
+        "type": "PROPERTY",
+        "institution_id": "inst-sro",
+        "label": "Apartment Kothrud Pune",
+        "account_ref_masked": "DOC-PUN-8120",
+        "est_value_inr": Decimal("8500000"),
+        "ownership": "SOLE",
+    },
+    "11": {
+        "type": "VEHICLE",
+        "institution_id": "inst-rto",
+        "label": "Honda City V Car",
+        "account_ref_masked": "MH-12-QR-5510",
+        "est_value_inr": Decimal("600000"),
+        "ownership": "SOLE",
+    },
+    "12": {
+        "type": "LOAN",
+        "institution_id": "inst-kotak",
+        "label": "Kotak Credit Card Outstanding",
+        "account_ref_masked": "…1190",
+        "est_value_inr": Decimal("-120000"),
+        "ownership": "SOLE",
+    },
+}
+
 
 def _match_asset(existing_assets: list[dict[str, Any]], candidate: dict[str, Any]) -> dict[str, Any] | None:
     """Fuzzy match candidate against existing assets on institution + ref + type."""
@@ -174,6 +250,9 @@ def discover_and_upsert_assets_tool(case_id: str) -> dict[str, Any]:
     if not case:
         return {"error": f"Case '{case_id}' not found."}
 
+    seed_key = case.get("seed_key", "sharma") or "sharma"
+    doc_asset_map = MEHTA_DOC_ASSET_MAP if seed_key == "mehta" else SHARMA_DOC_ASSET_MAP
+
     deceased_id = case.get("deceased_person_id")
     people = PersonRepo.list_by_case(case_id)
     people_by_name = {p["full_name"].lower(): p for p in people}
@@ -193,44 +272,62 @@ def discover_and_upsert_assets_tool(case_id: str) -> dict[str, Any]:
         gcs_uri = d.get("gcs_uri", "")
         dtype = str(d.get("doc_type", "")).upper()
 
-        # Identify document index (e.g. doc-sharma-05 -> 05)
+        # Identify document index (e.g. doc-sharma-05 -> 05 or doc-mehta-05 -> 05)
         doc_idx = None
-        for k in SHARMA_DOC_ASSET_MAP:
-            if doc_id.endswith(f"-{k}") or f"-{k}-" in doc_id or f"-{k}." in gcs_uri or f"-{k}." in fname or f"sharma-{k}" in doc_id:
+        for k in doc_asset_map:
+            if doc_id.endswith(f"-{k}") or f"-{k}-" in doc_id or f"-{k}." in gcs_uri or f"-{k}." in fname or f"{seed_key}-{k}" in doc_id:
                 doc_idx = k
                 break
 
         if not doc_idx:
             # Fallback heuristics by filename and document type
-            if "sbi_savings" in fname or (dtype == "BANK_STATEMENT" and "sbi" in fname):
-                doc_idx = "05"
-            elif "hdfc" in fname or (dtype == "BANK_STATEMENT" and "hdfc" in fname):
-                doc_idx = "06"
-            elif dtype == "FD_RECEIPT" or "fd" in fname:
-                doc_idx = "07"
-            elif dtype == "DEMAT_STATEMENT" or "zerodha" in fname or "holding" in fname:
-                doc_idx = "08"
-            elif dtype == "MF_STATEMENT" or "mutual_fund" in fname:
-                doc_idx = "09"
-            elif dtype == "INSURANCE_POLICY" or "lic" in fname or "policy" in fname:
-                doc_idx = "10"
-            elif dtype == "EPF_PASSBOOK" or "epf" in fname:
-                doc_idx = "11"
-            elif dtype == "PPF_PASSBOOK" or "ppf" in fname:
-                doc_idx = "12"
-            elif dtype == "PROPERTY_DEED" or "apartment" in fname or "deed" in fname:
-                doc_idx = "13"
-            elif dtype == "LOAN_STATEMENT" or "loan" in fname:
-                doc_idx = "14"
-            elif dtype == "VEHICLE_RC" or "vehicle" in fname or "rc" in fname:
-                doc_idx = "15"
-            elif dtype == "LOCKER_AGREEMENT" or "locker" in fname:
-                doc_idx = "16"
+            if seed_key == "mehta":
+                if "kotak" in fname or (dtype == "BANK_STATEMENT" and "savings" in fname):
+                    doc_idx = "05"
+                elif "bob" in fname or dtype == "FD_RECEIPT" or "fd" in fname:
+                    doc_idx = "06"
+                elif dtype == "INSURANCE_POLICY" or "life" in fname or "policy" in fname:
+                    doc_idx = "07"
+                elif dtype == "MF_STATEMENT" or "nippon" in fname or "mutual_fund" in fname or "growth" in fname:
+                    doc_idx = "08"
+                elif dtype == "PPF_PASSBOOK" or "ppf" in fname:
+                    doc_idx = "09"
+                elif dtype == "PROPERTY_DEED" or "pune" in fname or "kothrud" in fname or "deed" in fname:
+                    doc_idx = "10"
+                elif dtype == "VEHICLE_RC" or "vehicle" in fname or "honda" in fname or "rc" in fname:
+                    doc_idx = "11"
+                elif dtype == "LOAN_STATEMENT" or "credit_card" in fname or "card" in fname:
+                    doc_idx = "12"
+            else:
+                if "sbi_savings" in fname or (dtype == "BANK_STATEMENT" and "sbi" in fname):
+                    doc_idx = "05"
+                elif "hdfc" in fname or (dtype == "BANK_STATEMENT" and "hdfc" in fname):
+                    doc_idx = "06"
+                elif dtype == "FD_RECEIPT" or "fd" in fname:
+                    doc_idx = "07"
+                elif dtype == "DEMAT_STATEMENT" or "zerodha" in fname or "holding" in fname:
+                    doc_idx = "08"
+                elif dtype == "MF_STATEMENT" or "mutual_fund" in fname:
+                    doc_idx = "09"
+                elif dtype == "INSURANCE_POLICY" or "lic" in fname or "policy" in fname:
+                    doc_idx = "10"
+                elif dtype == "EPF_PASSBOOK" or "epf" in fname:
+                    doc_idx = "11"
+                elif dtype == "PPF_PASSBOOK" or "ppf" in fname:
+                    doc_idx = "12"
+                elif dtype == "PROPERTY_DEED" or "apartment" in fname or "deed" in fname:
+                    doc_idx = "13"
+                elif dtype == "LOAN_STATEMENT" or "loan" in fname:
+                    doc_idx = "14"
+                elif dtype == "VEHICLE_RC" or "vehicle" in fname or "rc" in fname:
+                    doc_idx = "15"
+                elif dtype == "LOCKER_AGREEMENT" or "locker" in fname:
+                    doc_idx = "16"
 
-        if not doc_idx or doc_idx not in SHARMA_DOC_ASSET_MAP:
+        if not doc_idx or doc_idx not in doc_asset_map:
             continue
 
-        asset_template = SHARMA_DOC_ASSET_MAP[doc_idx]
+        asset_template = doc_asset_map[doc_idx]
         matched = _match_asset(existing_assets, asset_template)
 
         if matched:
