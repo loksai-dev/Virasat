@@ -15,6 +15,7 @@ from app.logging_setup import request_id_ctx, setup_logging
 from app.models.schemas import HealthResponse, ReadyModelConfig, ReadyResponse
 from app.routers import api_router, root_router
 from app.services.change_propagation import change_propagator
+from app.services.rate_limiter import rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,74 @@ async def request_id_and_logging_middleware(request: Request, call_next):
         )
     finally:
         request_id_ctx.reset(token)
+
+
+# --------------------------------------------------------------------------
+# Token Bucket Rate Limiting Middleware
+# --------------------------------------------------------------------------
+@app.middleware("http")
+async def rate_limiting_middleware(request: Request, call_next):
+    """Enforce token bucket rate limiting per UID and per client IP."""
+    path = request.url.path
+    if path in ("/health", "/ready", "/docs", "/redoc", "/openapi.json"):
+        return await call_next(request)
+
+    auth_header = request.headers.get("Authorization", "")
+    caller_id = ""
+    if auth_header.startswith("Bearer "):
+        caller_id = auth_header.split(" ", 1)[1].strip()
+
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "127.0.0.1"
+
+    identifier = caller_id if caller_id else client_ip
+
+    method = request.method.upper()
+    category = "general"
+    if "/documents" in path and method == "POST":
+        category = "upload"
+    elif "/run" in path and method == "POST":
+        category = "run"
+    elif "/chat" in path and method == "POST":
+        category = "chat"
+    elif "/whatif" in path and method == "POST":
+        category = "whatif"
+
+    req_id = getattr(request.state, "request_id", str(uuid.uuid4()))
+
+    # Check category rate limit
+    allowed, msg = rate_limiter.check_rate_limit(identifier=identifier, category=category)
+    if not allowed:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error": {
+                    "code": "RATE_LIMITED",
+                    "message": msg,
+                    "request_id": req_id,
+                }
+            },
+            headers={"Retry-After": "2", "X-Request-ID": req_id},
+        )
+
+    # Also apply general limit ceiling (e.g. 60 req/min)
+    if category != "general":
+        gen_allowed, gen_msg = rate_limiter.check_rate_limit(identifier=identifier, category="general")
+        if not gen_allowed:
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": {
+                        "code": "RATE_LIMITED",
+                        "message": gen_msg,
+                        "request_id": req_id,
+                    }
+                },
+                headers={"Retry-After": "2", "X-Request-ID": req_id},
+            )
+
+    return await call_next(request)
 
 
 # --------------------------------------------------------------------------

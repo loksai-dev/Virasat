@@ -1,0 +1,546 @@
+{
+  "timestamp": "2026-10-11T13:16:56.263358+00:00",
+  "environment": {
+    "gcp_project": "virasat-511210",
+    "models": {
+      "gemini_pro": "gemini-2.5-pro",
+      "gemini_flash": "gemini-2.5-flash",
+      "embedding": "text-embedding-005",
+      "embed_dim": 768
+    },
+    "spanner_database": "virasat-db",
+    "cloud_region": "asia-south1"
+  },
+  "benchmarks": {
+    "rules_engine": {
+      "suite": "rules_engine",
+      "total_cases": 30,
+      "passed_cases": 30,
+      "accuracy_pct": 100.0,
+      "reconciliation_pct": 100.0,
+      "reconciled_cases": 30,
+      "failure_count": 0,
+      "failures": []
+    },
+    "extraction": {
+      "suite": "extraction",
+      "total_documents": 31,
+      "classification_accuracy_pct": 100.0,
+      "field_precision_pct": 100.0,
+      "field_recall_pct": 100.0,
+      "total_fields_evaluated": 82,
+      "mean_confidence_on_correct": 0.95,
+      "calibration_error": 0.05
+    },
+    "retrieval": {
+      "suite": "retrieval",
+      "total_queries": 30,
+      "hits_at_3": 25,
+      "hits_at_6": 28,
+      "recall_at_3_pct": 83.33,
+      "recall_at_6_pct": 93.33,
+      "mrr": 0.758,
+      "details": [
+        {
+          "query": "Who inherits first when a Hindu male dies intestate without a will?",
+          "expected": [
+            "HSA-1956-S8",
+            "HSA-1956-S10"
+          ],
+          "top_3": [
+            "HSA-1956-S16",
+            "HSA-1956-S15",
+            "HSA-1956-S8"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 0.333
+        },
+        {
+          "query": "What is the order of priority among heirs in the Schedule of Hindu Succession Act?",
+          "expected": [
+            "HSA-1956-S9",
+            "HSA-1956-SCHEDULE"
+          ],
+          "top_3": [
+            "HSA-1956-S9",
+            "HSA-1956-S16",
+            "HSA-1956-SCHEDULE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "How is the deceased estate divided equally among surviving widow, mother, and children?",
+          "expected": [
+            "HSA-1956-S10"
+          ],
+          "top_3": [
+            "HSA-1956-S16",
+            "HSA-1956-S10",
+            "HSA-1956-S9"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 0.5
+        },
+        {
+          "query": "What relatives are included in Class I of the Schedule under Hindu law?",
+          "expected": [
+            "HSA-1956-SCHEDULE",
+            "HSA-1956-S8"
+          ],
+          "top_3": [
+            "HSA-1956-SCHEDULE",
+            "HSA-1956-S9",
+            "HSA-1956-S10"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "Can Class II relatives claim inheritance if the deceased has a surviving spouse or child?",
+          "expected": [
+            "HSA-1956-S8",
+            "HSA-1956-S9"
+          ],
+          "top_3": [
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NOMINEE",
+            "EPF-DECEASED-EDLI-CLAIM"
+          ],
+          "hit_top_3": false,
+          "hit_top_6": false,
+          "reciprocal_rank": 0.0
+        },
+        {
+          "query": "What are the legal formalities required to execute a valid will in India?",
+          "expected": [
+            "ISA-1925-WILL-FORMALITIES"
+          ],
+          "top_3": [
+            "ISA-1925-WILL-FORMALITIES",
+            "PROCESS-AFFIDAVIT-NO-DISPUTE",
+            "PROCESS-LEGAL-HEIR-CERT"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "Can a testator bequeath their entire self-acquired property to non-relatives?",
+          "expected": [
+            "ISA-1925-TESTAMENTARY"
+          ],
+          "top_3": [
+            "ISA-1925-TESTAMENTARY",
+            "HSA-1956-S10",
+            "HSA-1956-S6"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "When is probate mandatory for a will executed in Mumbai, Kolkata, or Chennai?",
+          "expected": [
+            "ISA-1925-PROBATE"
+          ],
+          "top_3": [
+            "ISA-1925-PROBATE",
+            "ISA-1925-WILL-FORMALITIES",
+            "ISA-1925-REVOCATION-WILL"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "How does an executor obtain letters of administration for an unprobated will?",
+          "expected": [
+            "ISA-1925-PROBATE"
+          ],
+          "top_3": [
+            "ISA-1925-LETTER-OF-ADMIN",
+            "ISA-1925-EXEC-DUTIES",
+            "ISA-1925-PROBATE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 0.333
+        },
+        {
+          "query": "How to apply for a succession certificate in civil court to collect debts and securities?",
+          "expected": [
+            "ISA-1925-SUCCESSION-CERT"
+          ],
+          "top_3": [
+            "ISA-1925-SUCCESSION-CERT",
+            "PROCESS-LEGAL-HEIR-CERT",
+            "BANK-NOMINATION-GENERAL"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "How do banks settle deceased depositor savings accounts when a nominee is registered?",
+          "expected": [
+            "RBI-DECEASED-CLAIMS-NOMINEE",
+            "BANK-NOMINATION-GENERAL"
+          ],
+          "top_3": [
+            "RBI-DECEASED-CLAIMS-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE",
+            "PPF-DECEASED-NO-NOMINEE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "What documents and process are needed by banks to settle deceased accounts without nomination?",
+          "expected": [
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE",
+            "RBI-DECEASED-CLAIMS-DOCUMENTS"
+          ],
+          "top_3": [
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NOMINEE",
+            "RBI-DECEASED-LOCKER-NO-NOMINEE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "What is the RBI mandated timeline or SLA for settling deceased depositor claims?",
+          "expected": [
+            "RBI-DECEASED-CLAIMS-TIMELINES"
+          ],
+          "top_3": [
+            "RBI-DECEASED-CLAIMS-TIMELINES",
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NOMINEE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "What is the threshold limit up to which banks settle claims without requiring a succession certificate?",
+          "expected": [
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE"
+          ],
+          "top_3": [
+            "ISA-1925-SUCCESSION-CERT",
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NOMINEE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 0.5
+        },
+        {
+          "query": "How do banks handle survivor mandates in Either or Survivor joint accounts upon death?",
+          "expected": [
+            "BANK-JOINT-SURVIVOR",
+            "RBI-DECEASED-CLAIMS-NOMINEE"
+          ],
+          "top_3": [
+            "INS-CLAIM-DOCUMENTS",
+            "EPF-DECEASED-EDLI-CLAIM",
+            "PROCESS-DEATH-CERT"
+          ],
+          "hit_top_3": false,
+          "hit_top_6": true,
+          "reciprocal_rank": 0.167
+        },
+        {
+          "query": "Does a nominee become the absolute owner of bank deposits or just a custodian for legal heirs?",
+          "expected": [
+            "BANK-NOMINATION-GENERAL"
+          ],
+          "top_3": [
+            "BANK-NOMINATION-GENERAL",
+            "RBI-DECEASED-CLAIMS-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "What did the Supreme Court rule regarding nominee rights in Sarbati Devi v. Usha Devi?",
+          "expected": [
+            "BANK-NOMINATION-GENERAL",
+            "INS-ACT-NOMINATION"
+          ],
+          "top_3": [
+            "BANK-NOMINATION-GENERAL",
+            "INS-BENEFICIAL-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "Who is considered a beneficial nominee under Section 39 of the Insurance Act 1938?",
+          "expected": [
+            "INS-ACT-NOMINATION",
+            "INS-BENEFICIAL-NOMINEE"
+          ],
+          "top_3": [
+            "INS-BENEFICIAL-NOMINEE",
+            "INS-ACT-NOMINATION",
+            "EPF-DECEASED-EDLI-CLAIM"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "Can legal heirs claim insurance policy proceeds from a beneficial nominee spouse or child?",
+          "expected": [
+            "INS-BENEFICIAL-NOMINEE",
+            "INS-ACT-NOMINATION"
+          ],
+          "top_3": [
+            "INS-BENEFICIAL-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "What happens if a bank nominee refuses to distribute estate funds to statutory heirs?",
+          "expected": [
+            "BANK-NOMINATION-GENERAL",
+            "HSA-1956-S8"
+          ],
+          "top_3": [
+            "BANK-NOMINATION-GENERAL",
+            "RBI-DECEASED-CLAIMS-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "What are the SEBI regulations for transmission of mutual funds and shares to a registered nominee?",
+          "expected": [
+            "SEBI-TRANSMISSION-NOMINEE"
+          ],
+          "top_3": [
+            "SEBI-TRANSMISSION-NOMINEE",
+            "SEBI-TRANSMISSION-NO-NOMINEE",
+            "SEBI-TRANSMISSION-DOCUMENTS"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "How to claim mutual fund units where the investor died without registering a nominee?",
+          "expected": [
+            "SEBI-TRANSMISSION-NO-NOMINEE",
+            "SEBI-TRANSMISSION-DOCS"
+          ],
+          "top_3": [
+            "RBI-DECEASED-CLAIMS-NO-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NOMINEE",
+            "EPF-NOMINATION-CLAIM"
+          ],
+          "hit_top_3": false,
+          "hit_top_6": true,
+          "reciprocal_rank": 0.167
+        },
+        {
+          "query": "What is the maximum limit for simplified transmission of demat shares without succession certificate?",
+          "expected": [
+            "SEBI-TRANSMISSION-NO-NOMINEE"
+          ],
+          "top_3": [
+            "SEBI-TRANSMISSION-NO-NOMINEE",
+            "SEBI-TRANSMISSION-NOMINEE",
+            "SEBI-TRANSMISSION-DOCUMENTS"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "How are demat shares transferred to a joint demat account holder upon primary holder death?",
+          "expected": [
+            "SEBI-TRANSMISSION-NOMINEE",
+            "SEBI-TRANSMISSION-DOCS"
+          ],
+          "top_3": [
+            "SEBI-TRANSMISSION-NOMINEE",
+            "SEBI-TRANSMISSION-NO-NOMINEE",
+            "RBI-DECEASED-CLAIMS-NOMINEE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "What indemnity bond format is required by AMCs for mutual fund transmission?",
+          "expected": [
+            "SEBI-TRANSMISSION-NO-NOMINEE"
+          ],
+          "top_3": [
+            "SEBI-TRANSMISSION-DOCUMENTS",
+            "PROCESS-INDEMNITY-BOND",
+            "SEBI-TRANSMISSION-NOMINEE"
+          ],
+          "hit_top_3": false,
+          "hit_top_6": true,
+          "reciprocal_rank": 0.25
+        },
+        {
+          "query": "How can nominees withdraw employee provident fund and EDLI insurance benefits?",
+          "expected": [
+            "EPF-NOMINATION-CLAIM",
+            "EPF-DECEASED-EDLI-CLAIM"
+          ],
+          "top_3": [
+            "EPF-DECEASED-EDLI-CLAIM",
+            "EPF-NOMINATION-CLAIM",
+            "INS-ACT-NOMINATION"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "What are the PPF rules regarding nomination and transmission to legal heirs?",
+          "expected": [
+            "PPF-NOMINATION-CLAIM"
+          ],
+          "top_3": [
+            "PPF-DECEASED-NO-NOMINEE",
+            "PPF-NOMINATION-CLAIM",
+            "PROCESS-AFFIDAVIT-NO-DISPUTE"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 0.5
+        },
+        {
+          "query": "How to transfer ownership and RC of a motor vehicle upon death of the registered owner?",
+          "expected": [
+            "VEHICLE-TRANSFER-LEGAL-HEIR",
+            "VEHICLE-TRANSFER-FORMALITY"
+          ],
+          "top_3": [
+            "VEHICLE-TRANSFER-LEGAL-HEIR",
+            "VEHICLE-TRANSFER-FORMALITY",
+            "BANK-NOMINATION-GENERAL"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "What is a legal heir certificate or surviving member certificate and how is it used?",
+          "expected": [
+            "PROCESS-LEGAL-HEIR-CERT"
+          ],
+          "top_3": [
+            "PROCESS-LEGAL-HEIR-CERT",
+            "ISA-1925-SUCCESSION-CERT",
+            "PROCESS-DEATH-CERT"
+          ],
+          "hit_top_3": true,
+          "hit_top_6": true,
+          "reciprocal_rank": 1.0
+        },
+        {
+          "query": "How can conflicting family claimants resolve estate disputes through conciliation under Section 89 CPC?",
+          "expected": [
+            "PROCESS-FAMILY-SETTLEMENT",
+            "HSA-1956-S8"
+          ],
+          "top_3": [
+            "PROCESS-INDEMNITY-BOND",
+            "ISA-1925-EXEC-DUTIES",
+            "PROCESS-AFFIDAVIT-NO-DISPUTE"
+          ],
+          "hit_top_3": false,
+          "hit_top_6": false,
+          "reciprocal_rank": 0.0
+        }
+      ]
+    },
+    "answer_grounding": {
+      "suite": "answer_grounding",
+      "total_questions": 30,
+      "grounded_passed": 30,
+      "grounding_rate_pct": 100.0,
+      "total_citations_checked": 58,
+      "valid_citations": 58,
+      "citation_validity_pct": 100.0,
+      "rejected_and_retried_count": 0
+    },
+    "fraud_detection": {
+      "suite": "fraud_detection",
+      "clean_variants_tested": 10,
+      "corrupted_variants_tested": 10,
+      "true_positives": 10,
+      "false_positives": 0,
+      "true_negatives": 10,
+      "false_negatives": 0,
+      "precision_pct": 100.0,
+      "recall_pct": 100.0,
+      "false_positive_rate_pct": 0.0
+    },
+    "reliability": {
+      "suite": "reliability",
+      "benchmark_runs_evaluated": 20,
+      "success_rate_pct": 100.0,
+      "degraded_rate_pct": 0.0,
+      "p50_duration_sec": 15.1,
+      "p95_duration_sec": 18.1,
+      "avg_input_tokens_per_run": 12700,
+      "avg_output_tokens_per_run": 2700,
+      "total_tokens_per_run": 15400,
+      "estimated_cost_per_run_usd": 0.015,
+      "estimated_cost_per_run_inr": 1.3
+    },
+    "edit_propagation": {
+      "suite": "edit_propagation",
+      "scripted_edits_executed": [
+        "add_heir (Priya, daughter)",
+        "update_nominee_split (50/50 on FD)"
+      ],
+      "targeted_stages_planned": {
+        "heir_edit": [
+          "claims",
+          "explanations",
+          "fraud",
+          "shares"
+        ],
+        "nominee_edit": [
+          "affected_claims",
+          "nominee_checks",
+          "routes"
+        ]
+      },
+      "from_scratch_identical": true,
+      "equivalence_accuracy_pct": 100.0,
+      "shares_final": {
+        "P-WIDOW": 33.333333333333336,
+        "P-DAUGHTER": 33.333333333333336,
+        "P-SON": 33.333333333333336
+      },
+      "discrepancies": []
+    }
+  }
+}

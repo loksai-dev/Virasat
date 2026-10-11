@@ -16,6 +16,7 @@ from app.deps import CurrentUser
 from app.engines.succession_rules import compute
 from app.errors import NotFound
 from app.models.schemas import PersonShare, ShareFlow, ShareReasoning, SharesResponse
+from app.services.case_service import check_case_access
 
 router = APIRouter(tags=["Shares"])
 
@@ -27,9 +28,7 @@ async def get_case_shares(
     uid: str = CurrentUser,
 ):
     """Retrieve deterministic shares, Sankey flows, and citation-backed legal reasoning."""
-    case = CasesRepo.get(id)
-    if not case:
-        raise NotFound(f"Case '{id}' not found")
+    case = check_case_access(id, uid, for_mutation=False)
 
     data_version = case.get("data_version", 1)
 

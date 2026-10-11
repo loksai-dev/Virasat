@@ -47,7 +47,7 @@ def _delete_gcs_prefix(prefix: str, bucket_name: str) -> None:
         logger.warning(f"Could not delete GCS objects under {prefix}: {e}")
 
 
-def clone_seed(seed_key: str, uid: str, mode: str = "prefilled") -> str:
+def clone_seed(seed_key: str, uid: str, mode: str = "prefilled", copy_storage: bool = True) -> str:
     """Clone a seed case template into a new isolated case owned by uid.
 
     Returns the new case_id.
@@ -337,11 +337,12 @@ def clone_seed(seed_key: str, uid: str, mode: str = "prefilled") -> str:
     run_in_transaction(_write_clone)
 
     # 4. Copy GCS document objects to cases/<new_case_id>/docs/
-    _copy_gcs_docs(
-        source_prefix=f"seed/{seed_key}/",
-        target_prefix=f"cases/{new_case_id}/docs/",
-        bucket_name=settings.GCS_BUCKET,
-    )
+    if copy_storage:
+        _copy_gcs_docs(
+            source_prefix=f"seed/{seed_key}/",
+            target_prefix=f"cases/{new_case_id}/docs/",
+            bucket_name=settings.GCS_BUCKET,
+        )
 
     logger.info(f"Cloned seed case '{seed_key}' into '{new_case_id}' for user '{uid}' (mode: {mode}).")
     return new_case_id
@@ -349,8 +350,15 @@ def clone_seed(seed_key: str, uid: str, mode: str = "prefilled") -> str:
 
 def delete_case_records(tx: Transaction, case_id: str) -> None:
     """Delete all records associated with case_id across all Spanner tables."""
+    # Delete AgentEvent first via run_id subquery since AgentEvent has no case_id column
+    tx.execute_update(
+        "DELETE FROM AgentEvent WHERE run_id IN (SELECT run_id FROM AgentRun WHERE case_id = @cid)",
+        params={"cid": case_id},
+        param_types={"cid": spanner.param_types.STRING},
+    )
+
     tables = [
-        "AgentEvent", "AgentRun", "ChatMessage", "AuditLog", "ChangeLog",
+        "AgentRun", "ChatMessage", "AuditLog", "ChangeLog",
         "ShareResult", "Claim", "Dispute", "Consent", "Will", "DocRequest",
         "Document", "Nominee", "Owns", "HeldAt", "Asset", "Relationship",
         "Person", "Cases",

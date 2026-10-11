@@ -67,8 +67,19 @@ def load_market_figures() -> list[dict[str, Any]]:
     return verified_figures
 
 
+import time
+
+_last_impact_cache: dict[str, Any] | None = None
+_last_impact_ts: float = 0.0
+
+
 def get_impact_data() -> dict[str, Any]:
     """Compile macro impact numbers from active case data, timeline, and market figures."""
+    global _last_impact_cache, _last_impact_ts
+    now = time.monotonic()
+    if _last_impact_cache is not None and (now - _last_impact_ts) < 15.0:
+        return _last_impact_cache
+
     from app.db.client import run_in_snapshot
 
     def _read_stats(snap):

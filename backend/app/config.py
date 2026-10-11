@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
     DEMO_MODE: bool = True
     AGENT_FALLBACK_TO_CACHE: bool = True
+    USE_SQL_FALLBACK: bool = False
     SESSION_TTL_HOURS: int = 24
     RATE_LIMIT_PER_MIN: int = 60
     RATE_LIMIT_CHAT_PER_MIN: int = 30
@@ -33,8 +34,11 @@ class Settings(BaseSettings):
     MAX_CHAT_HISTORY_TURNS: int = 10
     ENABLE_MODEL_ARMOR: bool = False
     LOCAL_DEV_UID: str = ""
-    USE_SQL_FALLBACK: bool = False
     PORT: int = 8000
+    REDACT_PII: bool = True
+    MAX_CONCURRENT_RUNS: int = 10
+    DAILY_MODEL_CALL_BUDGET_PER_UID: int = 150
+    SCHEDULER_SERVICE_ACCOUNT: str = "virasat-api@virasat-511210.iam.gserviceaccount.com"
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1854,6 +1854,29 @@ class AgentRunRepo:
         return run_in_snapshot(_get)
 
     @staticmethod
+    def list_recent(limit: int = 50) -> list[dict[str, Any]]:
+        def _list(snap: Snapshot):
+            sql = f"""
+            SELECT run_id, case_id, trigger_kind, status, degraded, rerun_pending, case_version, started_at, finished_at, metrics
+            FROM AgentRun
+            ORDER BY started_at DESC
+            LIMIT {limit}
+            """
+            rows = list(snap.execute_sql(sql))
+            keys = ["run_id", "case_id", "trigger_kind", "status", "degraded", "rerun_pending", "case_version", "started_at", "finished_at", "metrics"]
+            res = []
+            for r in rows:
+                d = dict(zip(keys, r, strict=False))
+                if isinstance(d["metrics"], str):
+                    try:
+                        d["metrics"] = json.loads(d["metrics"])
+                    except Exception:
+                        pass
+                res.append(d)
+            return res
+        return run_in_snapshot(_list)
+
+    @staticmethod
     def update_status(run_id: str, status: str, degraded: bool = False, metrics: dict[str, Any] | None = None) -> None:
         now = now_utc()
         def _tx(tx: Transaction):

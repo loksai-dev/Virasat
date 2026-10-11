@@ -40,7 +40,7 @@ async def start_case_run(
 
     verify_case_access(id, uid, allow_read_seed=False)
 
-    run_record, _ = run_manager.start_case_run(case_id=id, trigger_kind="manual")
+    run_record, _ = run_manager.start_case_run(case_id=id, trigger_kind="manual", caller_uid=uid)
     return _format_run_response(run_record)
 
 

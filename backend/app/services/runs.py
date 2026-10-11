@@ -14,6 +14,8 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any
 
+from fastapi import HTTPException
+from app.config import get_settings
 from app.agents.orchestrator import PipelineOrchestrator
 from app.db.repositories import AgentEventRepo, AgentRunRepo, CasesRepo
 from app.errors import NotFound
@@ -27,8 +29,9 @@ class RunManager:
 
     def __init__(self):
         self.orchestrator = PipelineOrchestrator()
-        # Keep track of active asyncio background tasks per case_id
+        # Keep track of active asyncio background tasks per case_id and caller_uid
         self._active_tasks: dict[str, asyncio.Task] = {}
+        self._active_uids: dict[str, str] = {}
 
     def start_case_run(
         self,
@@ -36,6 +39,7 @@ class RunManager:
         trigger_kind: str = "manual",
         stages: list[str] | None = None,
         context: dict[str, Any] | None = None,
+        caller_uid: str | None = None,
     ) -> tuple[dict[str, Any], bool]:
         """Start a new agent run or return existing active run with rerun_pending flag.
 
@@ -44,6 +48,27 @@ class RunManager:
         case = CasesRepo.get(case_id)
         if not case:
             raise NotFound(f"Case '{case_id}' not found.")
+
+        owner_uid = caller_uid or case.get("owner_uid")
+
+        # 1. Global concurrency cap check
+        settings = get_settings()
+        active_count = len([t for t in self._active_tasks.values() if not t.done()])
+        max_runs = getattr(settings, "MAX_CONCURRENT_RUNS", 10)
+        if active_count >= max_runs:
+            raise HTTPException(
+                status_code=429,
+                detail="System is currently at maximum pipeline capacity. Please retry shortly.",
+            )
+
+        # 2. One active run per UID check
+        if owner_uid and owner_uid != "system":
+            for cid, task in list(self._active_tasks.items()):
+                if not task.done() and self._active_uids.get(cid) == owner_uid:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="Only one active pipeline run is permitted per user. Please wait for current run to finish.",
+                    )
 
         # Check for currently active run
         active_run = AgentRunRepo.get_active_by_case(case_id)
@@ -73,6 +98,8 @@ class RunManager:
         # Spawn background execution
         task = asyncio.create_task(self._execute_run_pipeline(case_id, run_id, stages=stages, context=context))
         self._active_tasks[case_id] = task
+        if owner_uid:
+            self._active_uids[case_id] = owner_uid
 
         return run_record, True
 
@@ -104,11 +131,13 @@ class RunManager:
                 self._active_tasks[case_id] = followup_task
             else:
                 self._active_tasks.pop(case_id, None)
+                self._active_uids.pop(case_id, None)
                 publish_case_event(case_id, "case_fresh", {"case_id": case_id, "run_id": run_id, "stale": False})
 
         except Exception as e:
             logger.error("Unexpected error in _execute_run_pipeline for run %s: %s", run_id, e, exc_info=True)
             self._active_tasks.pop(case_id, None)
+            self._active_uids.pop(case_id, None)
             publish_case_event(case_id, "case_fresh", {"case_id": case_id, "run_id": run_id, "stale": False})
 
     def get_run(self, run_id: str) -> dict[str, Any]:

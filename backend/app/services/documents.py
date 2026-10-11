@@ -12,6 +12,7 @@ Enforces:
 """
 
 import logging
+import re
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -57,8 +58,17 @@ def validate_file_bytes(data: bytes, filename: str) -> str:
     raise BadRequest("Unsupported file type. Only PDF, PNG, and JPG files are accepted.")
 
 
+def sanitize_filename(filename: str) -> str:
+    """Sanitize uploaded filename, stripping directory traversal characters and special symbols."""
+    base = Path(filename.replace("\\", "/")).name
+    clean = re.sub(r'[\x00/\\:\*\?"<>\|]+', '_', base)
+    clean = re.sub(r'\.\.+', '.', clean)
+    clean = clean.strip('. ')
+    return clean[:128] if clean else "uploaded_document.pdf"
+
+
 def get_document_access_url(case_id: str, doc_id: str, gcs_uri: str) -> str:
-    """Return short-lived signed URL (15 min) or streaming proxy URL if signing unavailable."""
+    """Return short-lived signed URL (10 min) or streaming proxy URL if signing unavailable."""
     settings = get_settings()
     bucket_name = settings.GCS_BUCKET
     blob_name = f"cases/{case_id}/docs/{doc_id}"
@@ -67,10 +77,10 @@ def get_document_access_url(case_id: str, doc_id: str, gcs_uri: str) -> str:
         client = storage.Client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
-        # Attempt generating signed URL v4
+        # Signed URL strictly expires in 10 minutes
         signed_url = blob.generate_signed_url(
             version="v4",
-            expiration=timedelta(minutes=15),
+            expiration=timedelta(minutes=10),
             method="GET",
         )
         return signed_url
@@ -89,8 +99,8 @@ def verify_case_access(case_id: str, uid: str, allow_read_seed: bool = True) -> 
     if is_seed and not allow_read_seed:
         raise Forbidden("Seed template cases are read-only.")
 
-    # Match auth checks in case_service.py
-    if not is_seed and case["owner_uid"] != uid and uid != "system" and not uid.startswith("test-"):
+    # Strictly enforce case ownership
+    if not is_seed and case["owner_uid"] != uid and uid != "system":
         raise Forbidden(f"Case '{case_id}' does not belong to user '{uid}'.")
 
     return case
@@ -109,8 +119,13 @@ class DocumentService:
         uid: str,
     ) -> dict[str, Any]:
         """Validate, store to GCS, and create Document row with status PENDING."""
+        # 0. Sanitize filename and validate case_id to prevent path traversal
+        clean_name = sanitize_filename(filename)
+        if "/" in case_id or "\\" in case_id or ".." in case_id:
+            raise BadRequest("Invalid case identifier format")
+
         # 1. Validate magic bytes and size
-        mime_type = validate_file_bytes(file_bytes, filename)
+        mime_type = validate_file_bytes(file_bytes, clean_name)
 
         # 2. Check case ownership and read-only status
         verify_case_access(case_id, uid, allow_read_seed=False)
@@ -139,7 +154,7 @@ class DocumentService:
             "doc_id": doc_id,
             "case_id": case_id,
             "gcs_uri": gcs_uri,
-            "original_name": filename,
+            "original_name": clean_name,
             "doc_type": None,
             "extracted": {},
             "field_confidence": {},

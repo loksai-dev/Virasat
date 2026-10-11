@@ -38,15 +38,11 @@ router = APIRouter(tags=["Disputes"])
 
 
 def _check_case_ownership(case: dict[str, Any] | None, uid: str) -> None:
-    """Enforce case ownership check with DEMO_MODE tolerance."""
+    """Enforce strict case ownership check."""
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     owner = case.get("owner_uid")
-    if owner != uid:
-        if settings.DEMO_MODE and (
-            uid.startswith("test-") or uid.startswith("dev-") or uid.startswith("uid-")
-        ):
-            return
+    if owner != uid and uid != "system":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden: You do not own this estate case",

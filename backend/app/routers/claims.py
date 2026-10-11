@@ -207,8 +207,8 @@ async def approve_claim(
     if not case:
         raise NotFound(f"Case '{case_id}' not found.")
 
-    # Caller must own the case (allow test/admin overrides)
-    if case["owner_uid"] != uid and uid != "system" and not uid.startswith("test-"):
+    # Caller must own the case
+    if case["owner_uid"] != uid and uid != "system":
         raise Forbidden("Caller does not own this case.")
 
     # Status must be READY
