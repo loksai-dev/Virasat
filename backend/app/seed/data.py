@@ -9,20 +9,60 @@ from typing import Any
 # -----------------------------------------------------------------------------
 # Global Institutions
 # -----------------------------------------------------------------------------
+DEFAULT_BANK_DOCS: dict[str, Any] = {
+    "NOMINEE_PAYOUT": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+    "SUCCESSION": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "LEGAL_HEIR_CERT"], "virasat_docs": ["CLAIM_FORM", "INDEMNITY_BOND"], "illustrative": True, "needs_review": True},
+    "WILL": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "WILL"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+    "LOAN": {"user_docs": ["DEATH_CERT"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+}
+
+DEFAULT_INSURER_DOCS: dict[str, Any] = {
+    "NOMINEE_PAYOUT": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+    "SUCCESSION": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "LEGAL_HEIR_CERT"], "virasat_docs": ["CLAIM_FORM", "INDEMNITY_BOND"], "illustrative": True, "needs_review": True},
+    "WILL": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "WILL"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+}
+
+DEFAULT_EPFO_DOCS: dict[str, Any] = {
+    "NOMINEE_PAYOUT": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+    "SUCCESSION": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "LEGAL_HEIR_CERT"], "virasat_docs": ["CLAIM_FORM", "INDEMNITY_BOND"], "illustrative": True, "needs_review": True},
+}
+
+DEFAULT_BROKER_DOCS: dict[str, Any] = {
+    "NOMINEE_PAYOUT": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+    "SUCCESSION": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "LEGAL_HEIR_CERT"], "virasat_docs": ["CLAIM_FORM", "INDEMNITY_BOND"], "illustrative": True, "needs_review": True},
+    "WILL": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "WILL"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+}
+
+DEFAULT_AMC_DOCS: dict[str, Any] = {
+    "NOMINEE_PAYOUT": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+    "SUCCESSION": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "LEGAL_HEIR_CERT"], "virasat_docs": ["CLAIM_FORM", "INDEMNITY_BOND"], "illustrative": True, "needs_review": True},
+    "WILL": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "WILL"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+}
+
+DEFAULT_SRO_DOCS: dict[str, Any] = {
+    "WILL": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "WILL", "PROPERTY_DOC"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+    "SUCCESSION": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "LEGAL_HEIR_CERT", "PROPERTY_DOC"], "virasat_docs": ["CLAIM_FORM", "INDEMNITY_BOND"], "illustrative": True, "needs_review": True},
+}
+
+DEFAULT_RTO_DOCS: dict[str, Any] = {
+    "WILL": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "WILL", "VEHICLE_RC"], "virasat_docs": ["CLAIM_FORM"], "illustrative": True, "needs_review": True},
+    "SUCCESSION": {"user_docs": ["DEATH_CERT", "CLAIMANT_ID", "LEGAL_HEIR_CERT", "VEHICLE_RC"], "virasat_docs": ["CLAIM_FORM", "INDEMNITY_BOND"], "illustrative": True, "needs_review": True},
+}
+
 INSTITUTIONS: list[dict[str, Any]] = [
-    {"institution_id": "inst-sbi", "name": "State Bank of India", "kind": "bank", "sla_days": 15, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-hdfc", "name": "HDFC Bank", "kind": "bank", "sla_days": 15, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-icici", "name": "ICICI Bank", "kind": "bank", "sla_days": 15, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-kotak", "name": "Kotak Mahindra Bank", "kind": "bank", "sla_days": 15, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-bob", "name": "Bank of Baroda", "kind": "bank", "sla_days": 15, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-lic", "name": "Life Insurance Corporation of India", "kind": "insurer", "sla_days": 30, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-hdfc-life", "name": "HDFC Life Insurance", "kind": "insurer", "sla_days": 30, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-epfo", "name": "Employees' Provident Fund Organisation", "kind": "epfo", "sla_days": 30, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-zerodha", "name": "Zerodha Broking Limited", "kind": "broker", "sla_days": 14, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-sbimf", "name": "SBI Mutual Fund", "kind": "amc", "sla_days": 21, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-nippon", "name": "Nippon India Mutual Fund", "kind": "amc", "sla_days": 21, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-sro", "name": "Sub-Registrar Office", "kind": "registrar", "sla_days": 45, "required_docs": {"note": "filled in P10"}},
-    {"institution_id": "inst-rto", "name": "Regional Transport Office", "kind": "rto", "sla_days": 30, "required_docs": {"note": "filled in P10"}},
+    {"institution_id": "inst-sbi", "name": "State Bank of India", "kind": "bank", "sla_days": 15, "required_docs": DEFAULT_BANK_DOCS},
+    {"institution_id": "inst-hdfc", "name": "HDFC Bank", "kind": "bank", "sla_days": 15, "required_docs": DEFAULT_BANK_DOCS},
+    {"institution_id": "inst-icici", "name": "ICICI Bank", "kind": "bank", "sla_days": 15, "required_docs": DEFAULT_BANK_DOCS},
+    {"institution_id": "inst-kotak", "name": "Kotak Mahindra Bank", "kind": "bank", "sla_days": 15, "required_docs": DEFAULT_BANK_DOCS},
+    {"institution_id": "inst-bob", "name": "Bank of Baroda", "kind": "bank", "sla_days": 15, "required_docs": DEFAULT_BANK_DOCS},
+    {"institution_id": "inst-lic", "name": "Life Insurance Corporation of India", "kind": "insurer", "sla_days": 30, "required_docs": DEFAULT_INSURER_DOCS},
+    {"institution_id": "inst-hdfc-life", "name": "HDFC Life Insurance", "kind": "insurer", "sla_days": 30, "required_docs": DEFAULT_INSURER_DOCS},
+    {"institution_id": "inst-epfo", "name": "Employees' Provident Fund Organisation", "kind": "epfo", "sla_days": 30, "required_docs": DEFAULT_EPFO_DOCS},
+    {"institution_id": "inst-zerodha", "name": "Zerodha Broking Limited", "kind": "broker", "sla_days": 14, "required_docs": DEFAULT_BROKER_DOCS},
+    {"institution_id": "inst-sbimf", "name": "SBI Mutual Fund", "kind": "amc", "sla_days": 21, "required_docs": DEFAULT_AMC_DOCS},
+    {"institution_id": "inst-nippon", "name": "Nippon India Mutual Fund", "kind": "amc", "sla_days": 21, "required_docs": DEFAULT_AMC_DOCS},
+    {"institution_id": "inst-sro", "name": "Sub-Registrar Office", "kind": "registrar", "sla_days": 45, "required_docs": DEFAULT_SRO_DOCS},
+    {"institution_id": "inst-rto", "name": "Regional Transport Office", "kind": "rto", "sla_days": 30, "required_docs": DEFAULT_RTO_DOCS},
 ]
 
 

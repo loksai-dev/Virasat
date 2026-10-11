@@ -583,6 +583,23 @@ class NomineeRepo:
         run_in_transaction(_tx)
         return nominees, ver_container["version"]
 
+    @staticmethod
+    def list_by_asset(
+        asset_id: str,
+        valid_at: datetime | None = None,
+        known_at: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        asof, p, pt = as_of_clause(valid_at, known_at, prefix="n")
+        def _list(snap: Snapshot):
+            sql = f"""
+            SELECT n.person_id, n.asset_id, n.case_id, n.share_pct, n.valid_from, n.valid_to, n.recorded_from, n.recorded_to
+            FROM Nominee n WHERE n.asset_id = @asset_id AND {asof}
+            """
+            rows = list(snap.execute_sql(sql, params={"asset_id": asset_id, **p}, param_types={"asset_id": spanner.param_types.STRING, **pt}))
+            keys = ["person_id", "asset_id", "case_id", "share_pct", "valid_from", "valid_to", "recorded_from", "recorded_to"]
+            return [dict(zip(keys, r, strict=False)) for r in rows]
+        return run_in_snapshot(_list)
+
 
 # ---------------------------------------------------------------------------
 # Owns Repository (Bi-temporal)
@@ -727,8 +744,249 @@ class ClaimRepo:
             keys = ["claim_id", "case_id", "asset_id", "institution_id", "route", "status", "status_reason",
                     "amount_inr", "packet", "packet_gcs_uri", "approved_by", "submitted_at", "due_at",
                     "updated_at", "computed_for_version"]
-            return [dict(zip(keys, r, strict=False)) for r in rows]
+            results = []
+            for r in rows:
+                d = dict(zip(keys, r, strict=False))
+                if isinstance(d.get("packet"), str):
+                    try:
+                        d["packet"] = json.loads(d["packet"])
+                    except Exception:
+                        d["packet"] = {}
+                results.append(d)
+            return results
         return run_in_snapshot(_list)
+
+    @staticmethod
+    def get(claim_id: str) -> dict[str, Any] | None:
+        def _get(snap: Snapshot):
+            sql = """
+            SELECT claim_id, case_id, asset_id, institution_id, route, status, status_reason,
+                   amount_inr, packet, packet_gcs_uri, approved_by, submitted_at, due_at,
+                   updated_at, computed_for_version
+            FROM Claim WHERE claim_id = @claim_id
+            """
+            rows = list(snap.execute_sql(sql, params={"claim_id": claim_id}, param_types={"claim_id": spanner.param_types.STRING}))
+            if not rows:
+                return None
+            keys = ["claim_id", "case_id", "asset_id", "institution_id", "route", "status", "status_reason",
+                    "amount_inr", "packet", "packet_gcs_uri", "approved_by", "submitted_at", "due_at",
+                    "updated_at", "computed_for_version"]
+            d = dict(zip(keys, rows[0], strict=False))
+            if isinstance(d.get("packet"), str):
+                try:
+                    d["packet"] = json.loads(d["packet"])
+                except Exception:
+                    d["packet"] = {}
+            return d
+        return run_in_snapshot(_get)
+
+    @staticmethod
+    def save_claims(
+        case_id: str,
+        claims: list[dict[str, Any]],
+        computed_for_version: int,
+        actor: str = "ClaimsPackagerAgent",
+    ) -> None:
+        """Create or refresh claims for a case.
+        
+        Preserves SUBMITTED, IN_REVIEW, or SETTLED state on re-runs unless explicitly invalidated.
+        """
+        now = now_utc()
+
+        def _tx(tx: Transaction):
+            # Fetch existing claims for this case
+            sql = """
+            SELECT claim_id, asset_id, status, status_reason, approved_by, submitted_at, due_at
+            FROM Claim WHERE case_id = @case_id
+            """
+            rows = list(tx.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
+            existing_by_asset = {r[1]: {
+                "claim_id": r[0],
+                "status": r[2],
+                "status_reason": r[3],
+                "approved_by": r[4],
+                "submitted_at": r[5],
+                "due_at": r[6],
+            } for r in rows}
+
+            columns = [
+                "claim_id", "case_id", "asset_id", "institution_id", "route", "status",
+                "status_reason", "amount_inr", "packet", "packet_gcs_uri", "approved_by",
+                "submitted_at", "due_at", "updated_at", "computed_for_version"
+            ]
+            values = []
+
+            for c in claims:
+                aid = c["asset_id"]
+                cid = c.get("claim_id") or (existing_by_asset.get(aid, {}).get("claim_id")) or str(uuid.uuid4())
+                existing = existing_by_asset.get(aid)
+
+                # Preserve state if already submitted or later
+                if existing and existing.get("status") in ("SUBMITTED", "IN_REVIEW", "SETTLED"):
+                    final_status = existing["status"]
+                    final_reason = existing.get("status_reason")
+                    final_app_by = existing.get("approved_by")
+                    final_sub_at = existing.get("submitted_at")
+                    final_due_at = existing.get("due_at")
+                else:
+                    final_status = c.get("status", "READY")
+                    final_reason = c.get("status_reason")
+                    final_app_by = c.get("approved_by")
+                    final_sub_at = c.get("submitted_at")
+                    final_due_at = c.get("due_at")
+
+                pkt = c.get("packet")
+                pkt_json = json.dumps(pkt) if isinstance(pkt, (dict, list)) else (pkt or "{}")
+
+                amt = c.get("amount_inr")
+                amt_dec = Decimal(str(amt)) if amt is not None else None
+
+                values.append([
+                    cid,
+                    case_id,
+                    aid,
+                    c.get("institution_id"),
+                    c.get("route"),
+                    final_status,
+                    final_reason,
+                    amt_dec,
+                    pkt_json,
+                    c.get("packet_gcs_uri"),
+                    final_app_by,
+                    final_sub_at,
+                    final_due_at,
+                    now,
+                    computed_for_version,
+                ])
+
+            if values:
+                tx.insert_or_update(table="Claim", columns=columns, values=values)
+                append_audit_entry(tx, case_id, actor, "claims_refreshed", {"claims_count": len(values), "version": computed_for_version})
+
+        run_in_transaction(_tx)
+
+    @staticmethod
+    def update_status(
+        claim_id: str,
+        status: str,
+        status_reason: str | None = None,
+        approved_by: str | None = None,
+        submitted_at: datetime | None = None,
+        due_at: datetime | None = None,
+        actor: str = "system",
+        payload_extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        """Update lifecycle status of a claim and write change + audit logs."""
+        now = now_utc()
+        result_holder: list[dict[str, Any]] = []
+
+        def _tx(tx: Transaction):
+            sql = """
+            SELECT claim_id, case_id, asset_id, institution_id, route, status, status_reason,
+                   amount_inr, packet, packet_gcs_uri, approved_by, submitted_at, due_at,
+                   updated_at, computed_for_version
+            FROM Claim WHERE claim_id = @claim_id
+            """
+            rows = list(tx.execute_sql(sql, params={"claim_id": claim_id}, param_types={"claim_id": spanner.param_types.STRING}))
+            if not rows:
+                return
+
+            keys = ["claim_id", "case_id", "asset_id", "institution_id", "route", "status", "status_reason",
+                    "amount_inr", "packet", "packet_gcs_uri", "approved_by", "submitted_at", "due_at",
+                    "updated_at", "computed_for_version"]
+            cur = dict(zip(keys, rows[0], strict=False))
+            case_id = cur["case_id"]
+
+            new_sub_at = submitted_at if submitted_at is not None else cur.get("submitted_at")
+            new_due_at = due_at if due_at is not None else cur.get("due_at")
+            new_app_by = approved_by if approved_by is not None else cur.get("approved_by")
+
+            sql_upd = """
+            UPDATE Claim
+            SET status = @status, status_reason = @reason, approved_by = @app_by,
+                submitted_at = @sub_at, due_at = @due_at, updated_at = @now
+            WHERE claim_id = @cid
+            """
+            tx.execute_update(
+                sql_upd,
+                params={
+                    "status": status,
+                    "reason": status_reason,
+                    "app_by": new_app_by,
+                    "sub_at": new_sub_at,
+                    "due_at": new_due_at,
+                    "now": now,
+                    "cid": claim_id,
+                },
+                param_types={
+                    "status": spanner.param_types.STRING,
+                    "reason": spanner.param_types.STRING,
+                    "app_by": spanner.param_types.STRING,
+                    "sub_at": spanner.param_types.TIMESTAMP,
+                    "due_at": spanner.param_types.TIMESTAMP,
+                    "now": spanner.param_types.TIMESTAMP,
+                    "cid": spanner.param_types.STRING,
+                },
+            )
+
+            record_change(tx, case_id, "Claim", claim_id, "status", cur.get("status"), status, actor, now, now)
+            audit_payload = {"claim_id": claim_id, "from_status": cur.get("status"), "to_status": status}
+            if payload_extra:
+                audit_payload.update(payload_extra)
+            append_audit_entry(tx, case_id, actor, "claim_status_changed", audit_payload)
+
+            cur["status"] = status
+            cur["status_reason"] = status_reason
+            cur["approved_by"] = new_app_by
+            cur["submitted_at"] = new_sub_at
+            cur["due_at"] = new_due_at
+            cur["updated_at"] = now
+            if isinstance(cur.get("packet"), str):
+                try:
+                    cur["packet"] = json.loads(cur["packet"])
+                except Exception:
+                    pass
+            result_holder.append(cur)
+
+        run_in_transaction(_tx)
+        return result_holder[0] if result_holder else None
+
+
+class InstitutionRepo:
+    @staticmethod
+    def list_all() -> list[dict[str, Any]]:
+        def _list(snap: Snapshot):
+            sql = "SELECT institution_id, name, kind, required_docs, sla_days FROM Institution ORDER BY name"
+            rows = list(snap.execute_sql(sql))
+            keys = ["institution_id", "name", "kind", "required_docs", "sla_days"]
+            res = []
+            for r in rows:
+                d = dict(zip(keys, r, strict=False))
+                if isinstance(d.get("required_docs"), str):
+                    try:
+                        d["required_docs"] = json.loads(d["required_docs"])
+                    except Exception:
+                        d["required_docs"] = {}
+                res.append(d)
+            return res
+        return run_in_snapshot(_list)
+
+    @staticmethod
+    def get(institution_id: str) -> dict[str, Any] | None:
+        def _get(snap: Snapshot):
+            sql = "SELECT institution_id, name, kind, required_docs, sla_days FROM Institution WHERE institution_id = @id"
+            rows = list(snap.execute_sql(sql, params={"id": institution_id}, param_types={"id": spanner.param_types.STRING}))
+            if not rows:
+                return None
+            keys = ["institution_id", "name", "kind", "required_docs", "sla_days"]
+            d = dict(zip(keys, rows[0], strict=False))
+            if isinstance(d.get("required_docs"), str):
+                try:
+                    d["required_docs"] = json.loads(d["required_docs"])
+                except Exception:
+                    d["required_docs"] = {}
+            return d
+        return run_in_snapshot(_get)
 
 
 class DisputeRepo:
@@ -899,6 +1157,8 @@ class ShareResultRepo:
             ]
             return [dict(zip(keys, r, strict=False)) for r in rows]
         return run_in_snapshot(_list)
+
+    list_by_case_scenario = list_by_case_and_scenario
 
     @staticmethod
     def save_shares(
@@ -1131,4 +1391,224 @@ class DocumentRepo:
 
         run_in_transaction(_tx)
         return ver_container["version"]
+
+
+# ---------------------------------------------------------------------------
+# AgentRun Repository
+# ---------------------------------------------------------------------------
+class AgentRunRepo:
+    @staticmethod
+    def create(case_id: str, trigger_kind: str = "manual", case_version: int = 1) -> dict[str, Any]:
+        run_id = str(uuid.uuid4())
+        now = now_utc()
+        row = {
+            "run_id": run_id,
+            "case_id": case_id,
+            "trigger_kind": trigger_kind,
+            "status": "QUEUED",
+            "degraded": False,
+            "rerun_pending": False,
+            "case_version": case_version,
+            "started_at": now,
+            "finished_at": None,
+            "metrics": json.dumps({}),
+        }
+
+        def _tx(tx: Transaction):
+            sql = """
+            INSERT INTO AgentRun (run_id, case_id, trigger_kind, status, degraded, rerun_pending, case_version, started_at, finished_at, metrics)
+            VALUES (@run_id, @case_id, @trigger_kind, @status, @degraded, @rerun_pending, @case_version, @started_at, @finished_at, PARSE_JSON(@metrics))
+            """
+            tx.execute_update(sql, params=row, param_types={
+                "run_id": spanner.param_types.STRING,
+                "case_id": spanner.param_types.STRING,
+                "trigger_kind": spanner.param_types.STRING,
+                "status": spanner.param_types.STRING,
+                "degraded": spanner.param_types.BOOL,
+                "rerun_pending": spanner.param_types.BOOL,
+                "case_version": spanner.param_types.INT64,
+                "started_at": spanner.param_types.TIMESTAMP,
+                "finished_at": spanner.param_types.TIMESTAMP,
+                "metrics": spanner.param_types.STRING,
+            })
+
+        run_in_transaction(_tx)
+        row["metrics"] = {}
+        return row
+
+    @staticmethod
+    def get(run_id: str) -> dict[str, Any] | None:
+        def _get(snap: Snapshot):
+            sql = """
+            SELECT run_id, case_id, trigger_kind, status, degraded, rerun_pending, case_version, started_at, finished_at, metrics
+            FROM AgentRun WHERE run_id = @run_id
+            """
+            rows = list(snap.execute_sql(sql, params={"run_id": run_id}, param_types={"run_id": spanner.param_types.STRING}))
+            if not rows:
+                return None
+            keys = ["run_id", "case_id", "trigger_kind", "status", "degraded", "rerun_pending", "case_version", "started_at", "finished_at", "metrics"]
+            d = dict(zip(keys, rows[0], strict=False))
+            if isinstance(d["metrics"], str):
+                try:
+                    d["metrics"] = json.loads(d["metrics"])
+                except Exception:
+                    pass
+            return d
+        return run_in_snapshot(_get)
+
+    @staticmethod
+    def get_active_by_case(case_id: str) -> dict[str, Any] | None:
+        def _get(snap: Snapshot):
+            sql = """
+            SELECT run_id, case_id, trigger_kind, status, degraded, rerun_pending, case_version, started_at, finished_at, metrics
+            FROM AgentRun WHERE case_id = @case_id AND status IN ('QUEUED', 'RUNNING')
+            ORDER BY started_at DESC LIMIT 1
+            """
+            rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
+            if not rows:
+                return None
+            keys = ["run_id", "case_id", "trigger_kind", "status", "degraded", "rerun_pending", "case_version", "started_at", "finished_at", "metrics"]
+            d = dict(zip(keys, rows[0], strict=False))
+            if isinstance(d["metrics"], str):
+                try:
+                    d["metrics"] = json.loads(d["metrics"])
+                except Exception:
+                    pass
+            return d
+        return run_in_snapshot(_get)
+
+    @staticmethod
+    def update_status(run_id: str, status: str, degraded: bool = False, metrics: dict[str, Any] | None = None) -> None:
+        now = now_utc()
+        def _tx(tx: Transaction):
+            finished_at = now if status in ("DONE", "FAILED") else None
+            sql = """
+            UPDATE AgentRun
+            SET status = @status,
+                degraded = @degraded,
+                finished_at = @finished_at,
+                metrics = PARSE_JSON(@metrics)
+            WHERE run_id = @run_id
+            """
+            params = {
+                "run_id": run_id,
+                "status": status,
+                "degraded": degraded,
+                "finished_at": finished_at,
+                "metrics": json.dumps(metrics or {}),
+            }
+            param_types = {
+                "run_id": spanner.param_types.STRING,
+                "status": spanner.param_types.STRING,
+                "degraded": spanner.param_types.BOOL,
+                "finished_at": spanner.param_types.TIMESTAMP,
+                "metrics": spanner.param_types.STRING,
+            }
+            tx.execute_update(sql, params=params, param_types=param_types)
+        run_in_transaction(_tx)
+
+    @staticmethod
+    def set_rerun_pending(run_id: str, pending: bool = True) -> None:
+        def _tx(tx: Transaction):
+            sql = "UPDATE AgentRun SET rerun_pending = @pending WHERE run_id = @run_id"
+            tx.execute_update(sql, params={"run_id": run_id, "pending": pending}, param_types={"run_id": spanner.param_types.STRING, "pending": spanner.param_types.BOOL})
+        run_in_transaction(_tx)
+
+
+# ---------------------------------------------------------------------------
+# AgentEvent Repository
+# ---------------------------------------------------------------------------
+class AgentEventRepo:
+    @staticmethod
+    def append_event(
+        run_id: str,
+        event_type: str,
+        agent: str = "",
+        message: str = "",
+        citations: list[str] | None = None,
+        progress: float = 0.0,
+        degraded: bool = False,
+        payload: dict[str, Any] | None = None,
+    ) -> int:
+        now = now_utc()
+        seq_holder: list[int] = []
+
+        def _tx(tx: Transaction):
+            # Compute next seq
+            sql_max = "SELECT COALESCE(MAX(seq), 0) FROM AgentEvent WHERE run_id = @run_id"
+            rows = list(tx.execute_sql(sql_max, params={"run_id": run_id}, param_types={"run_id": spanner.param_types.STRING}))
+            next_seq = rows[0][0] + 1
+            seq_holder.append(next_seq)
+
+            sql_ins = """
+            INSERT INTO AgentEvent (run_id, seq, ts, agent, event_type, message, citations, progress, degraded, payload)
+            VALUES (@run_id, @seq, @ts, @agent, @event_type, @message, PARSE_JSON(@citations), @progress, @degraded, PARSE_JSON(@payload))
+            """
+            params = {
+                "run_id": run_id,
+                "seq": next_seq,
+                "ts": now,
+                "agent": agent,
+                "event_type": event_type,
+                "message": message,
+                "citations": json.dumps(citations or []),
+                "progress": float(progress),
+                "degraded": bool(degraded),
+                "payload": json.dumps(payload or {}),
+            }
+            param_types = {
+                "run_id": spanner.param_types.STRING,
+                "seq": spanner.param_types.INT64,
+                "ts": spanner.param_types.TIMESTAMP,
+                "agent": spanner.param_types.STRING,
+                "event_type": spanner.param_types.STRING,
+                "message": spanner.param_types.STRING,
+                "citations": spanner.param_types.STRING,
+                "progress": spanner.param_types.FLOAT64,
+                "degraded": spanner.param_types.BOOL,
+                "payload": spanner.param_types.STRING,
+            }
+            tx.execute_update(sql_ins, params=params, param_types=param_types)
+
+        run_in_transaction(_tx)
+        return seq_holder[0] if seq_holder else 1
+
+    @staticmethod
+    def list_events_after(run_id: str, after_seq: int = 0) -> list[dict[str, Any]]:
+        def _list(snap: Snapshot):
+            sql = """
+            SELECT run_id, seq, ts, agent, event_type, message, citations, progress, degraded, payload
+            FROM AgentEvent
+            WHERE run_id = @run_id AND seq > @after_seq
+            ORDER BY seq ASC
+            """
+            rows = list(snap.execute_sql(
+                sql,
+                params={"run_id": run_id, "after_seq": after_seq},
+                param_types={"run_id": spanner.param_types.STRING, "after_seq": spanner.param_types.INT64},
+            ))
+            keys = ["run_id", "seq", "ts", "agent", "event_type", "message", "citations", "progress", "degraded", "payload"]
+            results = []
+            for r in rows:
+                d = dict(zip(keys, r, strict=False))
+                if isinstance(d["citations"], str):
+                    try:
+                        d["citations"] = json.loads(d["citations"])
+                    except Exception:
+                        d["citations"] = []
+                elif d["citations"] is None:
+                    d["citations"] = []
+                if isinstance(d["payload"], str):
+                    try:
+                        d["payload"] = json.loads(d["payload"])
+                    except Exception:
+                        d["payload"] = {}
+                elif d["payload"] is None:
+                    d["payload"] = {}
+                if isinstance(d["ts"], datetime):
+                    d["ts"] = d["ts"].isoformat()
+                results.append(d)
+            return results
+        return run_in_snapshot(_list)
+
 
