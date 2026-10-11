@@ -48,7 +48,7 @@ async def get_current_uid(
     if settings.DEMO_MODE:
         if settings.LOCAL_DEV_UID and (token == settings.LOCAL_DEV_UID or token in ("local-dev", "test-token", "dev")):
             return settings.LOCAL_DEV_UID
-        if token.startswith("test-user-") or token.startswith("dev-user-") or token.startswith("uid-"):
+        if token.startswith("test-") or token.startswith("dev-") or token.startswith("uid-"):
             return token
 
     ensure_firebase_initialized()

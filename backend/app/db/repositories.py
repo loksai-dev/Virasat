@@ -875,6 +875,7 @@ class ClaimRepo:
         due_at: datetime | None = None,
         actor: str = "system",
         payload_extra: dict[str, Any] | None = None,
+        packet: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         """Update lifecycle status of a claim and write change + audit logs."""
         now = now_utc()
@@ -901,15 +902,16 @@ class ClaimRepo:
             new_due_at = due_at if due_at is not None else cur.get("due_at")
             new_app_by = approved_by if approved_by is not None else cur.get("approved_by")
 
-            sql_upd = """
-            UPDATE Claim
-            SET status = @status, status_reason = @reason, approved_by = @app_by,
-                submitted_at = @sub_at, due_at = @due_at, updated_at = @now
-            WHERE claim_id = @cid
-            """
-            tx.execute_update(
-                sql_upd,
-                params={
+            if packet is not None:
+                packet_json = json.dumps(packet) if isinstance(packet, (dict, list)) else str(packet)
+                sql_upd = """
+                UPDATE Claim
+                SET status = @status, status_reason = @reason, approved_by = @app_by,
+                    submitted_at = @sub_at, due_at = @due_at, updated_at = @now,
+                    packet = PARSE_JSON(@packet)
+                WHERE claim_id = @cid
+                """
+                params = {
                     "status": status,
                     "reason": status_reason,
                     "app_by": new_app_by,
@@ -917,8 +919,9 @@ class ClaimRepo:
                     "due_at": new_due_at,
                     "now": now,
                     "cid": claim_id,
-                },
-                param_types={
+                    "packet": packet_json,
+                }
+                param_types = {
                     "status": spanner.param_types.STRING,
                     "reason": spanner.param_types.STRING,
                     "app_by": spanner.param_types.STRING,
@@ -926,8 +929,34 @@ class ClaimRepo:
                     "due_at": spanner.param_types.TIMESTAMP,
                     "now": spanner.param_types.TIMESTAMP,
                     "cid": spanner.param_types.STRING,
-                },
-            )
+                    "packet": spanner.param_types.STRING,
+                }
+            else:
+                sql_upd = """
+                UPDATE Claim
+                SET status = @status, status_reason = @reason, approved_by = @app_by,
+                    submitted_at = @sub_at, due_at = @due_at, updated_at = @now
+                WHERE claim_id = @cid
+                """
+                params = {
+                    "status": status,
+                    "reason": status_reason,
+                    "app_by": new_app_by,
+                    "sub_at": new_sub_at,
+                    "due_at": new_due_at,
+                    "now": now,
+                    "cid": claim_id,
+                }
+                param_types = {
+                    "status": spanner.param_types.STRING,
+                    "reason": spanner.param_types.STRING,
+                    "app_by": spanner.param_types.STRING,
+                    "sub_at": spanner.param_types.TIMESTAMP,
+                    "due_at": spanner.param_types.TIMESTAMP,
+                    "now": spanner.param_types.TIMESTAMP,
+                    "cid": spanner.param_types.STRING,
+                }
+            tx.execute_update(sql_upd, params=params, param_types=param_types)
 
             record_change(tx, case_id, "Claim", claim_id, "status", cur.get("status"), status, actor, now, now)
             audit_payload = {"claim_id": claim_id, "from_status": cur.get("status"), "to_status": status}
@@ -1038,6 +1067,15 @@ class ConsentRepo:
 
         run_in_transaction(_tx)
         return {"case_id": case_id, "person_id": person_id, "status": status, "signed_at": now.isoformat()}, ver_container["version"]
+
+    @staticmethod
+    def upsert(data: dict[str, Any], actor: str = "system") -> tuple[dict[str, Any], int]:
+        return ConsentRepo.upsert_status(
+            case_id=data["case_id"],
+            person_id=data["person_id"],
+            status=data["status"],
+            actor=actor,
+        )
 
 
 class HistoryRepo:

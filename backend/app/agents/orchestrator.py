@@ -16,7 +16,8 @@ from typing import Any
 from app.agents.discovery import AssetDiscoveryAgent
 from app.agents.eligibility import LegalEligibilityAgent
 from app.agents.intake import IntakeAgent
-from app.agents.placeholders import ClaimsPackagerAgent, FraudDisputeAgent
+from app.agents.packager import ClaimsPackagerAgent
+from app.agents.placeholders import FraudDisputeAgent
 from app.db.repositories import AgentRunRepo, AssetRepo, PersonRepo
 from app.services.events import EventEmitter
 

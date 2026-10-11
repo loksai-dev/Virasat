@@ -348,34 +348,58 @@ class WhatIfResponse(BaseModel):
 # ---------------------------------------------------------
 # Claims Schemas
 # ---------------------------------------------------------
+class ClaimKpi(BaseModel):
+    total_claimed: Decimal | float
+    total_settled: Decimal | float
+    avg_days: float
+    blocked: int
+
+
+class ClaimBoardResponse(BaseModel):
+    board: dict[str, list[dict[str, Any]]]
+    readiness_by_institution: dict[str, float]
+    kpi: ClaimKpi
+    claims: list[dict[str, Any]] = []
+
+
 class ClaimResponse(BaseModel):
-    id: str
+    claim_id: str
     case_id: str
     asset_id: str
-    institution: str
+    institution_id: str
+    route: str
     status: str
-    payout_expected_inr: Decimal
-    claimant_person_id: str
-    requirements: list[str] = []
+    status_reason: str | None = None
+    amount_inr: Decimal | None = None
+    packet: dict[str, Any] = {}
 
 
 class ClaimPacketResponse(BaseModel):
     claim_id: str
     institution: str
-    packet_pdf_url: str | None = None
-    affidavits: list[dict[str, Any]] = []
     status: str
+    packet_pdf_url: str | None = None
+    checklist: list[dict[str, Any]] = []
+    pre_filled_form: dict[str, Any] = {}
+    signers: list[dict[str, Any]] = []
+    deadline: str | None = None
+    affidavits: list[dict[str, Any]] = []
 
 
 class ClaimApproveResponse(BaseModel):
     claim_id: str
     approved: bool
     status: str
+    submitted_at: str | None = None
+    due_at: str | None = None
 
 
 class ClaimAdvanceResponse(BaseModel):
     claim_id: str
+    old_status: str
     new_status: str
+    status_reason: str | None = None
+    simulated: bool = True
 
 
 # ---------------------------------------------------------
