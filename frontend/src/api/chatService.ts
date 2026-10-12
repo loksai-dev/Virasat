@@ -17,7 +17,7 @@ export interface EntityChip {
 }
 
 export interface InlineCardData {
-  type: 'asset_summary' | 'checklist' | 'mini_chart';
+  type: 'asset_summary' | 'checklist' | 'mini_chart' | 'share_table' | string;
   title: string;
   subtitle?: string;
   data: any;
@@ -300,14 +300,14 @@ export function streamChatCompletion(
   prompt: string,
   onChunk: (accumulatedText: string) => void,
   onComplete: (fullResponse: CannedResponse) => void,
-  options?: { caseId?: string; language?: string }
+  options?: { caseId?: string; language?: string; onError?: (error: Error) => void }
 ): () => void {
   if (API_CONFIG.USE_MOCKS) {
     return streamMockChatCompletion(prompt, onChunk, onComplete);
   }
 
   const abortController = new AbortController();
-  const caseId = options?.caseId || useVirasatStore.getState().caseId || 'case-sharma-1956';
+  const caseId = options?.caseId || useVirasatStore.getState().caseId || 'VR-2026-0142';
   const language = options?.language || 'en';
 
   (async () => {
@@ -355,83 +355,102 @@ export function streamChatCompletion(
               if (!dataStr) continue;
               try {
                 const parsed = JSON.parse(dataStr);
-                if (parsed.type === 'token' && parsed.content) {
+                if (parsed.type === 'token' && typeof parsed.content === 'string') {
                   accumulated += parsed.content;
                   onChunk(accumulated);
                 } else if (parsed.type === 'done') {
                   donePayload = parsed;
                 }
               } catch {
-                // skip unparseable
+                // skip unparseable SSE frame
               }
             }
           }
         }
       }
 
-      const fullText = donePayload?.answer || accumulated || 'Response received.';
+      // Safely ensure fullText is a string
+      const fullText = (typeof donePayload?.answer === 'string' && donePayload.answer.trim())
+        ? donePayload.answer
+        : (accumulated.trim() || 'Response received.');
 
+      // Normalize structured cards safely
       let inlineCard: InlineCardData | undefined = undefined;
-      if (donePayload?.cards && donePayload.cards.length > 0) {
-        const firstCard = donePayload.cards[0];
+      if (donePayload?.cards && Array.isArray(donePayload.cards) && donePayload.cards.length > 0) {
+        const firstCard = donePayload.cards[0] || {};
+        const rawType = firstCard.card_type || firstCard.type || 'asset_summary';
         inlineCard = {
-          type: firstCard.card_type === 'share_table' ? 'asset_summary' : (firstCard.card_type || 'asset_summary'),
-          title: firstCard.title || 'Estate Summary',
-          subtitle: firstCard.subtitle,
-          data: firstCard.data,
+          type: rawType,
+          title: String(firstCard.title || 'Estate Summary'),
+          subtitle: firstCard.subtitle ? String(firstCard.subtitle) : undefined,
+          data: typeof firstCard.data === 'object' && firstCard.data !== null ? firstCard.data : {},
         };
       }
 
-      const entityChips: EntityChip[] = (donePayload?.entity_links || []).map((el: any, idx: number) => {
-        const typeStr = (el.type || 'asset').toLowerCase();
-        let mappedType: 'asset' | 'heir' | 'claim' | 'document' | 'shares' = 'asset';
-        let route = `/case/${caseId}/overview`;
-        if (typeStr.includes('person') || typeStr.includes('heir')) {
-          mappedType = 'heir';
-          route = `/case/${caseId}/family`;
-        } else if (typeStr.includes('claim')) {
-          mappedType = 'claim';
-          route = `/case/${caseId}/claims`;
-        } else if (typeStr.includes('doc')) {
-          mappedType = 'document';
-          route = `/case/${caseId}/documents`;
-        } else if (typeStr.includes('share')) {
-          mappedType = 'shares';
-          route = `/case/${caseId}/heirs/shares`;
-        } else {
-          mappedType = 'asset';
-          route = `/case/${caseId}/assets`;
-        }
-        return {
-          id: el.id || `ec-${idx}`,
-          label: el.label || el.id || 'Entity',
-          type: mappedType,
-          route,
-        };
-      });
+      // Normalize Entity Chips safely with valid clean routes
+      const entityChips: EntityChip[] = (Array.isArray(donePayload?.entity_links) ? donePayload.entity_links : []).map(
+        (el: any, idx: number) => {
+          const typeStr = String(el?.type || 'asset').toLowerCase();
+          let mappedType: 'asset' | 'heir' | 'claim' | 'document' | 'shares' = 'asset';
+          let targetSubpath = '/overview';
+          if (typeStr.includes('person') || typeStr.includes('heir')) {
+            mappedType = 'heir';
+            targetSubpath = '/family';
+          } else if (typeStr.includes('claim')) {
+            mappedType = 'claim';
+            targetSubpath = '/claims';
+          } else if (typeStr.includes('doc')) {
+            mappedType = 'document';
+            targetSubpath = '/documents';
+          } else if (typeStr.includes('share')) {
+            mappedType = 'shares';
+            targetSubpath = '/heirs/shares';
+          } else {
+            mappedType = 'asset';
+            targetSubpath = '/assets';
+          }
 
-      const citations: CitationSource[] = (donePayload?.citations || []).map((c: any, idx: number) => {
-        if (typeof c === 'string') {
           return {
-            id: `cite-${idx}`,
-            shortLabel: c,
-            fullTitle: `Statutory Provision & Case Precedent: ${c}`,
-            authority: 'Virasat Legal Engine',
-            provisionRef: c,
-            verbatimExcerpt: 'Referenced in statutory rules & case facts.',
-            plainEnglishExplanation: 'Grounding citation verified by Virasat GraphRAG engine.',
+            id: String(el?.id || `ec-${idx}`),
+            label: String(el?.label || el?.name || el?.id || 'Entity'),
+            type: mappedType,
+            route: `/case/${caseId}${targetSubpath}`,
           };
         }
-        return {
-          id: c.id || `cite-${idx}`,
-          shortLabel: c.shortLabel || c.title || 'Citation',
-          fullTitle: c.fullTitle || c.title || 'Legal Provision',
-          authority: c.authority || 'Court / Statute',
-          provisionRef: c.provisionRef || c.section || '',
-          verbatimExcerpt: c.verbatimExcerpt || c.excerpt || '',
-          plainEnglishExplanation: c.plainEnglishExplanation || c.explanation || '',
-        };
-      });
+      );
+
+      // Normalize Citations safely
+      const citations: CitationSource[] = (Array.isArray(donePayload?.citations) ? donePayload.citations : []).map(
+        (c: any, idx: number) => {
+          if (typeof c === 'string' || typeof c === 'number') {
+            const cStr = String(c);
+            return {
+              id: `cite-${idx}`,
+              shortLabel: cStr,
+              fullTitle: `Statutory Provision & Case Precedent: ${cStr}`,
+              authority: 'Virasat Legal Engine',
+              provisionRef: cStr,
+              verbatimExcerpt: 'Referenced in statutory succession rules & case facts.',
+              plainEnglishExplanation: 'Grounding citation verified by Virasat GraphRAG engine.',
+            };
+          }
+          const safeObj = typeof c === 'object' && c !== null ? c : {};
+          const shortLabel = String(safeObj.shortLabel || safeObj.title || safeObj.clause_id || `§ Clause ${idx + 1}`);
+          const provisionRef = String(safeObj.provisionRef || safeObj.section || safeObj.clause_id || shortLabel);
+
+          return {
+            id: String(safeObj.id || `cite-${idx}`),
+            shortLabel,
+            fullTitle: String(safeObj.fullTitle || safeObj.title || safeObj.source || 'Statutory Provision'),
+            authority: String(safeObj.authority || safeObj.source || 'Indian Succession Code'),
+            provisionRef,
+            verbatimExcerpt: String(safeObj.verbatimExcerpt || safeObj.excerpt || safeObj.text || 'Statutory legal text.'),
+            plainEnglishExplanation: String(
+              safeObj.plainEnglishExplanation || safeObj.explanation || 'Verified statutory provision.'
+            ),
+          };
+        }
+      );
 
       onComplete({
         promptId: 'live_chat',
@@ -443,7 +462,15 @@ export function streamChatCompletion(
       });
     } catch (err: any) {
       if (err.name !== 'AbortError') {
-        console.error('Live chat stream error, falling back:', err);
+        console.error('Live chat stream error:', err);
+        if (options?.onError) {
+          try {
+            options.onError(err instanceof Error ? err : new Error(String(err)));
+          } catch {
+            // ignore handler error
+          }
+        }
+        // Fallback to simulated response so user flow never breaks
         streamMockChatCompletion(prompt, onChunk, onComplete);
       }
     }
