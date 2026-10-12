@@ -19,11 +19,19 @@ router = APIRouter(tags=["Runs"])
 def _format_run_response(run_record: dict[str, Any]) -> RunResponse:
     st = run_record.get("started_at")
     created_at = st.isoformat() if isinstance(st, datetime) else str(st or "")
+    metrics = run_record.get("metrics")
+    if isinstance(metrics, str):
+        try:
+            metrics = json.loads(metrics)
+        except Exception:
+            metrics = {}
     return RunResponse(
         run_id=run_record["run_id"],
         case_id=run_record["case_id"],
         status=run_record.get("status", "QUEUED"),
         created_at=created_at,
+        degraded=bool(run_record.get("degraded", False)),
+        metrics=metrics if isinstance(metrics, dict) else {},
     )
 
 
@@ -40,8 +48,35 @@ async def start_case_run(
 
     verify_case_access(id, uid, allow_read_seed=False)
 
-    run_record, _ = run_manager.start_case_run(case_id=id, trigger_kind="manual", caller_uid=uid)
+    stages = body.stages if body else None
+    scenario = body.scenario if body else None
+    context = {"scenario": scenario} if scenario else None
+
+    run_record, _ = run_manager.start_case_run(
+        case_id=id,
+        trigger_kind="manual",
+        stages=stages,
+        context=context,
+        caller_uid=uid,
+    )
     return _format_run_response(run_record)
+
+
+@router.get("/cases/{id}/runs/latest", response_model=RunResponse)
+async def get_latest_case_run(
+    id: str,
+    uid: str = CurrentUser,
+):
+    """Get the latest agent run (active or completed) for a case."""
+    case = CasesRepo.get(id)
+    if not case:
+        raise NotFound(f"Case '{id}' not found.")
+
+    verify_case_access(id, uid, allow_read_seed=True)
+    latest_run = AgentRunRepo.get_latest_by_case(id)
+    if not latest_run:
+        raise NotFound(f"No agent run found for case '{id}'.")
+    return _format_run_response(latest_run)
 
 
 @router.get("/runs/{rid}", response_model=RunResponse)

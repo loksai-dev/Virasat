@@ -22,7 +22,8 @@ import {
   Fingerprint,
   RotateCcw,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Bot
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
@@ -31,7 +32,8 @@ import {
   DisclaimerFooter, 
   ToastProvider,
   AskVirasatDrawer,
-  PageTransition
+  PageTransition,
+  VirasatLogo
 } from '@/components';
 import { useVirasatStore, CaseScenario } from '@/store/useVirasatStore';
 import { baseCaseData } from '@/mocks/caseData';
@@ -113,6 +115,7 @@ export const CaseLayout: React.FC = () => {
 
   const navItems = [
     { label: 'Overview', path: `${basePath}/overview`, icon: LayoutDashboard },
+    { label: 'AI Agents', path: `${basePath}/agents`, icon: Bot, highlight: true },
     { label: 'Estate Assets', path: `${basePath}/assets`, icon: Landmark, count: 12 },
     { label: 'Family & Heirs', path: `${basePath}/family`, icon: Users, count: 5 },
     { label: 'Claims', path: `${basePath}/claims`, icon: FileCheck, count: 12 },
@@ -158,23 +161,8 @@ export const CaseLayout: React.FC = () => {
         <div>
           {/* Logo & Platform Header */}
           <div className="p-5 border-b border-navy-light/60 flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-amber-400 p-0.5 shadow-md flex items-center justify-center">
-                <div className="w-full h-full bg-navy rounded-[10px] flex items-center justify-center text-white font-serif font-bold text-xl group-hover:bg-transparent transition-colors">
-                  V
-                </div>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-serif font-bold tracking-tight text-white flex items-center gap-1.5">
-                  Virasat
-                  <span className="text-[10px] bg-teal-500/20 text-teal-300 font-sans px-1.5 py-0.2 rounded border border-teal-500/40">
-                    AI Care
-                  </span>
-                </span>
-                <span className="text-[11px] text-slate-400 font-normal italic">
-                  Every legacy, settled with care.
-                </span>
-              </div>
+            <Link to="/" className="flex items-center group">
+              <VirasatLogo variant="full" theme="dark" size="md" />
             </Link>
 
             <button

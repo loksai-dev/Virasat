@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Bot, Sparkles, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { baseCaseData } from '@/mocks/caseData';
+import { useVirasatStore } from '@/store/useVirasatStore';
 
 interface AgentsActivePillProps {
   className?: string;
@@ -13,6 +15,7 @@ export const AgentsActivePill: React.FC<AgentsActivePillProps> = ({
   variant = 'compact',
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { caseId } = useVirasatStore();
   const agents = baseCaseData.activeAgents;
   const activeCount = agents.filter(a => a.status === 'working').length;
 
@@ -89,7 +92,13 @@ export const AgentsActivePill: React.FC<AgentsActivePillProps> = ({
             <span className="flex items-center gap-1 text-emerald-400">
               <CheckCircle2 className="w-3 h-3" /> Zero manual lawyer trips
             </span>
-            <span>Bank-grade SLA</span>
+            <Link
+              to={`/case/${caseId}/agents`}
+              onClick={() => setIsExpanded(false)}
+              className="text-teal-300 hover:text-white font-medium hover:underline flex items-center gap-1"
+            >
+              <span>Inspect Agents →</span>
+            </Link>
           </div>
         </div>
       )}

@@ -18,6 +18,24 @@ export function useCaseStream(caseId?: string) {
   const { setDataVersion } = useVirasatStore();
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerCaseRefresh = () => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      if (caseId) {
+        queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+        queryClient.invalidateQueries({ queryKey: ['caseOverview', caseId] });
+        queryClient.invalidateQueries({ queryKey: ['assets', caseId] });
+        queryClient.invalidateQueries({ queryKey: ['people', caseId] });
+        queryClient.invalidateQueries({ queryKey: ['shares', caseId] });
+        queryClient.invalidateQueries({ queryKey: ['claims', caseId] });
+      } else {
+        queryClient.invalidateQueries();
+      }
+    }, 300);
+  };
+
   useEffect(() => {
     if (!caseId || API_CONFIG.USE_MOCKS) return;
 
@@ -90,8 +108,8 @@ export function useCaseStream(caseId?: string) {
                   }
                 }
               } catch {}
-              // Invalidate queries so UI refreshes live
-              queryClient.invalidateQueries();
+              // Scoped and debounced invalidation so UI refreshes smoothly
+              triggerCaseRefresh();
             }
           }
         }
@@ -109,12 +127,13 @@ export function useCaseStream(caseId?: string) {
       setIsStale(true);
       setTimeout(() => {
         setIsStale(false);
-        queryClient.invalidateQueries();
+        triggerCaseRefresh();
       }, 1500);
     };
     window.addEventListener('virasat:concurrency_conflict', handleConflict);
 
     return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       abortController.abort();
       window.removeEventListener('virasat:concurrency_conflict', handleConflict);
     };

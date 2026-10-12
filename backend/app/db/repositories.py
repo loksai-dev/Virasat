@@ -1854,6 +1854,27 @@ class AgentRunRepo:
         return run_in_snapshot(_get)
 
     @staticmethod
+    def get_latest_by_case(case_id: str) -> dict[str, Any] | None:
+        def _get(snap: Snapshot):
+            sql = """
+            SELECT run_id, case_id, trigger_kind, status, degraded, rerun_pending, case_version, started_at, finished_at, metrics
+            FROM AgentRun WHERE case_id = @case_id
+            ORDER BY started_at DESC LIMIT 1
+            """
+            rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
+            if not rows:
+                return None
+            keys = ["run_id", "case_id", "trigger_kind", "status", "degraded", "rerun_pending", "case_version", "started_at", "finished_at", "metrics"]
+            d = dict(zip(keys, rows[0], strict=False))
+            if isinstance(d["metrics"], str):
+                try:
+                    d["metrics"] = json.loads(d["metrics"])
+                except Exception:
+                    pass
+            return d
+        return run_in_snapshot(_get)
+
+    @staticmethod
     def list_recent(limit: int = 50) -> list[dict[str, Any]]:
         def _list(snap: Snapshot):
             sql = f"""

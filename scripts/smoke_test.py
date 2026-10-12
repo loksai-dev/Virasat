@@ -110,7 +110,7 @@ def run_smoke_tests(base_url: str) -> bool:
                 status_resp = client.get(f"{base_url}/api/runs/{run_id}", headers=auth_header)
                 if status_resp.status_code == 200:
                     final_run_status = status_resp.json().get("status")
-                    if final_run_status in ("COMPLETED", "FAILED"):
+                    if final_run_status in ("DONE", "COMPLETED", "FAILED"):
                         break
             except Exception:
                 pass

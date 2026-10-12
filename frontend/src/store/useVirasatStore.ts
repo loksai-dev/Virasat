@@ -22,11 +22,13 @@ interface VirasatState {
   dataVersion: number;
   language: SupportedLanguage;
   tourActive: boolean;
+  activeRunId: string | null;
   toasts: ToastMessage[];
   
   // Actions
   setRole: (role: UserRole) => void;
   setCaseId: (caseId: string) => void;
+  setActiveRunId: (activeRunId: string | null) => void;
   setScenario: (scenario: CaseScenario) => void;
   setMode: (mode: CaseMode) => void;
   setDataVersion: (dataVersion: number) => void;
@@ -41,6 +43,7 @@ export const useVirasatStore = create<VirasatState>()(
     (set) => ({
       role: null, // Disabled until a role is chosen
       caseId: 'VR-2026-0142',
+      activeRunId: null,
       scenario: 'complex', // Default scenario: Complex (Sharma)
       mode: 'prefilled',
       dataVersion: 1,
@@ -50,6 +53,7 @@ export const useVirasatStore = create<VirasatState>()(
 
       setRole: (role) => set({ role }),
       setCaseId: (caseId) => set({ caseId }),
+      setActiveRunId: (activeRunId) => set({ activeRunId }),
       setScenario: (scenario) => set({ scenario }),
       setMode: (mode) => set({ mode }),
       setDataVersion: (dataVersion) => set({ dataVersion }),
@@ -73,6 +77,7 @@ export const useVirasatStore = create<VirasatState>()(
       partialize: (state) => ({
         role: state.role,
         caseId: state.caseId,
+        activeRunId: state.activeRunId,
         scenario: state.scenario,
         mode: state.mode,
         dataVersion: state.dataVersion,

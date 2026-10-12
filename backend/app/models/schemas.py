@@ -309,6 +309,7 @@ class SharesResponse(BaseModel):
 # ---------------------------------------------------------
 class RunCreateRequest(BaseModel):
     scenario: str | None = "current"
+    stages: list[str] | None = None
 
 
 class RunResponse(BaseModel):
@@ -316,6 +317,8 @@ class RunResponse(BaseModel):
     case_id: str
     status: str
     created_at: str
+    degraded: bool = False
+    metrics: dict[str, Any] = {}
 
 
 class AgentEvent(BaseModel):

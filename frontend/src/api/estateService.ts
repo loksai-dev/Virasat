@@ -369,6 +369,51 @@ export const estateService = {
   },
 
   // --------------------------------------------------------------------------
+  // Agent Runs & Orchestration
+  // --------------------------------------------------------------------------
+  async startRun(caseId: string, stages: string[] = ['all']) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { run_id: `run-${caseId}-${Date.now()}`, status: 'RUNNING', degraded: false };
+    }
+    return api.post<{ run_id: string; status: string; degraded: boolean }>(`/cases/${caseId}/run`, { stages });
+  },
+
+  async getLatestRun(caseId: string) {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return null;
+    }
+    return api.get<{
+      run_id: string;
+      case_id: string;
+      status: 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED';
+      started_at?: string;
+      completed_at?: string;
+      error_message?: string;
+      degraded?: boolean;
+      metrics?: Record<string, any>;
+    }>(`/cases/${caseId}/runs/latest`);
+  },
+
+  async getRun(runId: string): Promise<{
+    run_id: string;
+    case_id?: string;
+    status: 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED' | string;
+    started_at?: string;
+    completed_at?: string;
+    error_message?: string;
+    degraded?: boolean;
+    metrics?: Record<string, any>;
+  }> {
+    if (API_CONFIG.USE_MOCKS) {
+      await delay(API_CONFIG.SIMULATED_DELAY_MS);
+      return { run_id: runId, status: 'DONE' };
+    }
+    return api.get(`/runs/${runId}`);
+  },
+
+  // --------------------------------------------------------------------------
   // Legacy / Bulk Access
   // --------------------------------------------------------------------------
   async getAll(scenario: CaseScenario = 'complex'): Promise<VirasatMockDatabase> {

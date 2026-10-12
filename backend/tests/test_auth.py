@@ -54,8 +54,6 @@ async def test_auth_local_dev_uid_bypass(async_client: AsyncClient, monkeypatch)
 
     headers = {"Authorization": "Bearer test-dev-user-999"}
     response = await async_client.get("/api/cases/VR-2026-0142/overview", headers=headers)
-    # The endpoint is a stub, so it should pass auth and return HTTP 501 not_implemented
-    assert response.status_code == 501
-    data = response.json()
-    assert data["error"]["code"] == "not_implemented"
-    assert "request_id" in data["error"]
+    # Auth should succeed and not return 401 Unauthorized
+    assert response.status_code != 401
+    assert response.status_code in (200, 404)

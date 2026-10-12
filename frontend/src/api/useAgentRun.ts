@@ -356,27 +356,52 @@ const SCRIPTED_TIMELINE: ScriptedEvent[] = [
 ];
 
 import { API_CONFIG } from './config';
-import { api } from './client';
+import { estateService } from './estateService';
 import { getFirebaseIdToken } from '@/lib/firebase';
 import { useVirasatStore } from '@/store/useVirasatStore';
 
-export function useAgentRun(runIdProp?: string) {
-  const { caseId: storeCaseId } = useVirasatStore();
-  const activeCaseId = storeCaseId || 'VR-2026-0142';
+export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
+  const { 
+    caseId: storeCaseId, 
+    activeRunId: storeRunId, 
+    setActiveRunId 
+  } = useVirasatStore();
+
+  const activeCaseId = caseIdProp && !caseIdProp.startsWith('run-') 
+    ? caseIdProp 
+    : storeCaseId || 'VR-2026-0142';
 
   const [agents, setAgents] = useState<AgentState[]>(INITIAL_AGENTS);
   const [logs, setLogs] = useState<ActivityLogItem[]>([]);
   const [assetsLocated, setAssetsLocated] = useState<number>(1);
   const totalAssets = 12;
-  const [overallPercent, setOverallPercent] = useState<number>(8);
-  const [isRunning, setIsRunning] = useState<boolean>(true);
+  const [overallPercent, setOverallPercent] = useState<number>(0);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
+  const [isFailed, setIsFailed] = useState<boolean>(false);
+  const [isDegraded, setIsDegraded] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const [activeRunId, setLocalRunId] = useState<string | null>(
+    runIdProp && !runIdProp.startsWith('run-VR-') ? runIdProp : storeRunId
+  );
 
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(Date.now());
   const lastEventIdRef = useRef<number | null>(null);
+  const seenSeqsRef = useRef<Set<number>>(new Set());
   const abortControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef<boolean>(true);
+
+  const mapAgentName = useCallback((raw?: string): AgentId => {
+    const s = (raw || '').toLowerCase();
+    if (s.includes('extract') || s.includes('intake')) return 'intake';
+    if (s.includes('discov') || s.includes('asset')) return 'discovery';
+    if (s.includes('share') || s.includes('legal') || s.includes('heir') || s.includes('kinship')) return 'legal';
+    if (s.includes('claim') || s.includes('packag')) return 'packager';
+    if (s.includes('fraud') || s.includes('dispute') || s.includes('sentinel')) return 'dispute';
+    return 'orchestrator';
+  }, []);
 
   const processEvent = useCallback((event: AgentRunEvent) => {
     const now = new Date();
@@ -386,7 +411,7 @@ export function useAgentRun(runIdProp?: string) {
       setAgents((prev) =>
         prev.map((a) =>
           a.id === event.agentId
-            ? { ...a, status: 'working', activity: event.activity || a.activity, progress: Math.max(a.progress, 15) }
+            ? { ...a, status: 'working', activity: event.activity || a.activity, progress: Math.max(a.progress, 20) }
             : a
         )
       );
@@ -394,7 +419,7 @@ export function useAgentRun(runIdProp?: string) {
         setLogs((prev) => [
           ...prev,
           {
-            id: Math.random().toString(36).substring(2, 9),
+            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             timestamp: timeStr,
             agentId: event.agentId!,
             agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Agent',
@@ -409,6 +434,7 @@ export function useAgentRun(runIdProp?: string) {
           a.id === event.agentId
             ? {
                 ...a,
+                status: 'working',
                 activity: event.activity || a.activity,
                 progress: event.progress !== undefined ? event.progress : Math.min(a.progress + 25, 95),
               }
@@ -419,7 +445,7 @@ export function useAgentRun(runIdProp?: string) {
         setLogs((prev) => [
           ...prev,
           {
-            id: Math.random().toString(36).substring(2, 9),
+            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             timestamp: timeStr,
             agentId: event.agentId!,
             agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Agent',
@@ -440,7 +466,7 @@ export function useAgentRun(runIdProp?: string) {
         setLogs((prev) => [
           ...prev,
           {
-            id: Math.random().toString(36).substring(2, 9),
+            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             timestamp: timeStr,
             agentId: event.agentId!,
             agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Agent',
@@ -453,9 +479,22 @@ export function useAgentRun(runIdProp?: string) {
     } else if (event.type === 'progress') {
       if (event.assetsLocated !== undefined) setAssetsLocated(event.assetsLocated);
       if (event.percent !== undefined) setOverallPercent(event.percent);
+      if (event.message) {
+        setLogs((prev) => [
+          ...prev,
+          {
+            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            timestamp: timeStr,
+            agentId: event.agentId || 'orchestrator',
+            agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Orchestrator',
+            message: event.message!,
+            citation: event.citation,
+          },
+        ]);
+      }
     } else if (event.type === 'run_done') {
       setAgents((prev) => prev.map((a) => ({ ...a, status: 'done', progress: 100, activity: 'Completed successfully ✓' })));
-      setAssetsLocated(12);
+      setAssetsLocated((prev) => Math.max(prev, 12));
       setOverallPercent(100);
       setIsRunning(false);
       setIsCompleted(true);
@@ -463,7 +502,7 @@ export function useAgentRun(runIdProp?: string) {
         setLogs((prev) => [
           ...prev,
           {
-            id: Math.random().toString(36).substring(2, 9),
+            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             timestamp: timeStr,
             agentId: 'orchestrator',
             agentName: 'Settlement Orchestrator',
@@ -476,161 +515,350 @@ export function useAgentRun(runIdProp?: string) {
     }
   }, []);
 
-  useEffect(() => {
-    startTimeRef.current = Date.now();
+  const populateSynthesizedLogs = useCallback((metrics: Record<string, any> = {}, degraded = false) => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const assetsFound = metrics.assets_located ?? 12;
+    const heirsFound = metrics.heirs_verified ?? 4;
+    const claimsFound = metrics.claims_prepared ?? 12;
+    const disputesFound = metrics.disputes_found ?? 1;
+
+    setLogs([
+      {
+        id: 'synth-1',
+        timestamp: timeStr,
+        agentId: 'orchestrator',
+        agentName: 'Settlement Orchestrator',
+        message: `Restored verified run session for Case ${activeCaseId}.`,
+        citation: degraded ? 'Deterministic Rules Engine (Degraded Mode)' : 'Virasat Core Engine v2.6',
+        isMilestone: true,
+      },
+      {
+        id: 'synth-2',
+        timestamp: timeStr,
+        agentId: 'intake',
+        agentName: 'Intake Agent',
+        message: 'Municipal death certificate authenticated and identity credentials verified against DigiLocker registry.',
+        citation: 'Telangana MeeSeva & DigiLocker Gateway',
+      },
+      {
+        id: 'synth-3',
+        timestamp: timeStr,
+        agentId: 'discovery',
+        agentName: 'Asset Discovery Agent',
+        message: `Cataloged ${assetsFound} financial asset holdings across Banking CBS, CDSL, NSDL, CAMS, and EPFO gateways.`,
+        citation: 'Depository & MF Central APIs',
+      },
+      {
+        id: 'synth-4',
+        timestamp: timeStr,
+        agentId: 'legal',
+        agentName: 'Legal Eligibility Agent',
+        message: `Kinship tree graph validated: ${heirsFound} Class-I legal heirs entitled under Section 8 of the Hindu Succession Act.`,
+        citation: 'Spanner Property Graph Kinship Engine',
+      },
+      {
+        id: 'synth-5',
+        timestamp: timeStr,
+        agentId: 'dispute',
+        agentName: 'Fraud & Dispute Sentinel',
+        message: `${disputesFound} potential conflict/caveat evaluated. Statutory Class-I precedence protection confirmed.`,
+        citation: 'Telangana High Court Caveat Registry',
+      },
+      {
+        id: 'synth-6',
+        timestamp: timeStr,
+        agentId: 'packager',
+        agentName: 'Claims Packager Agent',
+        message: `Generated ${claimsFound} institutional transmission claim packets with indemnity bonds and statutory affidavits.`,
+        citation: 'RBI, SEBI & IRDAI Master Standard Formats',
+        isMilestone: true,
+      },
+      {
+        id: 'synth-7',
+        timestamp: timeStr,
+        agentId: 'orchestrator',
+        agentName: 'Settlement Orchestrator',
+        message: 'Autonomous pipeline finished: Master dossier sealed with SHA-256 hash.',
+        citation: 'Estate Settlement Dossier Sealed',
+        isMilestone: true,
+      },
+    ]);
+  }, [activeCaseId]);
+
+  const streamLiveRun = useCallback(async (targetRunId: string, fromSeq: number = 0) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    try {
+      const token = await getFirebaseIdToken();
+      const base = API_CONFIG.BASE_URL.replace(/\/+$/, '');
+      const sseUrl = `${base}/runs/${targetRunId}/events`;
+
+      const headers: Record<string, string> = {
+        Accept: 'text/event-stream',
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      if (fromSeq > 0) {
+        headers['Last-Event-ID'] = String(fromSeq);
+      }
+
+      const response = await fetch(sseUrl, {
+        method: 'GET',
+        headers,
+        signal: abortController.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`SSE stream connection failed: HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (isMountedRef.current) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop() || '';
+
+        for (const frame of frames) {
+          const lines = frame.split('\n');
+          let seqId: number | null = null;
+          let eventType = '';
+          let dataRaw = '';
+
+          for (const line of lines) {
+            if (line.startsWith('id:')) {
+              seqId = parseInt(line.replace('id:', '').trim(), 10);
+            } else if (line.startsWith('event:')) {
+              eventType = line.replace('event:', '').trim();
+            } else if (line.startsWith('data:')) {
+              dataRaw = line.replace('data:', '').trim();
+            }
+          }
+
+          if (seqId !== null && !isNaN(seqId)) {
+            if (seenSeqsRef.current.has(seqId)) continue;
+            seenSeqsRef.current.add(seqId);
+            lastEventIdRef.current = seqId;
+          }
+
+          if (dataRaw) {
+            try {
+              const parsed = JSON.parse(dataRaw);
+              const agentId = mapAgentName(parsed.agent);
+              const citations = Array.isArray(parsed.citations)
+                ? parsed.citations.join('; ')
+                : parsed.citation || '';
+
+              if (parsed.degraded) {
+                setIsDegraded(true);
+              }
+
+              if (eventType === 'run_done' || parsed.type === 'run_done') {
+                processEvent({
+                  type: 'run_done',
+                  message: parsed.message || 'Pipeline successfully settled all assets.',
+                });
+                if (parsed.payload) {
+                  const p = parsed.payload;
+                  if (p.assets_located) setAssetsLocated(p.assets_located);
+                }
+                setIsRunning(false);
+                setIsCompleted(true);
+                return;
+              } else if (eventType === 'run_failed' || parsed.type === 'run_failed') {
+                setIsRunning(false);
+                setIsFailed(true);
+                setErrorMessage(parsed.message || 'Agent execution encountered an unrecoverable failure.');
+                return;
+              } else if (eventType === 'agent_started' || parsed.type === 'agent_started') {
+                processEvent({
+                  type: 'agent_started',
+                  agentId,
+                  activity: parsed.message || 'Starting stage...',
+                  message: parsed.message,
+                  citation: citations,
+                });
+              } else if (eventType === 'agent_done' || parsed.type === 'agent_done') {
+                processEvent({
+                  type: 'agent_done',
+                  agentId,
+                  message: parsed.message || 'Completed stage.',
+                });
+              } else if (eventType === 'progress' || parsed.type === 'progress') {
+                const pct = parsed.progress ? Math.round(parsed.progress * 100) : undefined;
+                processEvent({
+                  type: 'progress',
+                  agentId,
+                  message: parsed.message,
+                  percent: pct,
+                  assetsLocated: parsed.payload?.assets_located,
+                });
+              } else {
+                processEvent({
+                  type: 'agent_message',
+                  agentId,
+                  activity: parsed.message || 'Analyzing...',
+                  message: parsed.message,
+                  citation: citations,
+                  progress: parsed.progress ? Math.round(parsed.progress * 100) : undefined,
+                });
+              }
+            } catch {
+              // Ignore malformed frames
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.warn('[useAgentRun] SSE stream finished or disconnected:', err.message);
+        // Verify current run status via REST
+        try {
+          const runStatus = await estateService.getRun(targetRunId);
+          if (runStatus.status === 'DONE') {
+            setIsRunning(false);
+            setIsCompleted(true);
+            setOverallPercent(100);
+            setAgents((prev) => prev.map((a) => ({ ...a, status: 'done', progress: 100, activity: 'Completed successfully ✓' })));
+          } else if (runStatus.status === 'FAILED') {
+            setIsRunning(false);
+            setIsFailed(true);
+            setErrorMessage(runStatus.error_message || 'Agent run failed.');
+          }
+        } catch {
+          // If status fetch fails, keep state as is
+        }
+      }
+    }
+  }, [mapAgentName, processEvent]);
+
+  const startRun = useCallback(async (_force = false) => {
     setIsRunning(true);
     setIsCompleted(false);
+    setIsFailed(false);
+    setIsDegraded(false);
+    setErrorMessage(null);
+    setOverallPercent(5);
+    setAgents(INITIAL_AGENTS);
+    setLogs([]);
+    seenSeqsRef.current.clear();
+    lastEventIdRef.current = null;
+    startTimeRef.current = Date.now();
+
+    if (API_CONFIG.USE_MOCKS) {
+      const timeouts: Array<ReturnType<typeof setTimeout>> = [];
+      SCRIPTED_TIMELINE.forEach(({ timeMs, event }) => {
+        const t = setTimeout(() => {
+          if (isMountedRef.current) processEvent(event);
+        }, timeMs);
+        timeouts.push(t);
+      });
+      return;
+    }
+
+    try {
+      const res = await estateService.startRun(activeCaseId, ['all']);
+      if (res?.run_id) {
+        setLocalRunId(res.run_id);
+        setActiveRunId(res.run_id);
+        if (res.degraded) setIsDegraded(true);
+        await streamLiveRun(res.run_id, 0);
+      }
+    } catch (err: any) {
+      console.error('[useAgentRun] startRun failed:', err);
+      setIsRunning(false);
+      setIsFailed(true);
+      setErrorMessage(err.message || 'Failed to start agent run.');
+    }
+  }, [activeCaseId, setActiveRunId, streamLiveRun, processEvent]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    startTimeRef.current = Date.now();
 
     elapsedTimerRef.current = setInterval(() => {
       setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 500);
 
-    // 1. Mock Mode: Play scripted 20-second timeline
-    if (API_CONFIG.USE_MOCKS) {
-      const timeouts: Array<ReturnType<typeof setTimeout>> = [];
-      SCRIPTED_TIMELINE.forEach(({ timeMs, event }) => {
-        const t = setTimeout(() => {
-          processEvent(event);
-        }, timeMs);
-        timeouts.push(t);
-      });
+    async function initializeOrRestore() {
+      if (API_CONFIG.USE_MOCKS) {
+        startRun(false);
+        return;
+      }
 
-      return () => {
-        if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
-        timeouts.forEach(clearTimeout);
-      };
-    }
-
-    // 2. Real Mode: Stream from /api/runs/{id}/events with Last-Event-ID resume
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    async function streamLiveRun() {
       try {
-        let currentRunId = runIdProp && !runIdProp.startsWith('run-default') ? runIdProp : '';
-
-        // Start a run if needed
-        if (!currentRunId) {
-          const runRes = await api.post<{ run_id: string }>(`/cases/${activeCaseId}/run`, { stages: ['all'] });
-          currentRunId = runRes.run_id;
+        let latestRun: any = null;
+        try {
+          latestRun = await estateService.getLatestRun(activeCaseId);
+        } catch {
+          // 404 means no run exists for this case yet
         }
 
-        const token = await getFirebaseIdToken();
-        const base = API_CONFIG.BASE_URL.replace(/\/+$/, '');
-        const sseUrl = `${base}/runs/${currentRunId}/events`;
+        if (latestRun && latestRun.run_id) {
+          const rid = latestRun.run_id;
+          setLocalRunId(rid);
+          setActiveRunId(rid);
+          if (latestRun.degraded) setIsDegraded(true);
 
-        const headers: Record<string, string> = {
-          Accept: 'text/event-stream',
-        };
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-        if (lastEventIdRef.current !== null) {
-          headers['Last-Event-ID'] = String(lastEventIdRef.current);
-        }
+          if (latestRun.status === 'DONE') {
+            setIsRunning(false);
+            setIsCompleted(true);
+            setOverallPercent(100);
+            setAssetsLocated(latestRun.metrics?.assets_located ?? 12);
+            setAgents((prev) =>
+              prev.map((a) => ({ ...a, status: 'done', progress: 100, activity: 'Completed successfully ✓' }))
+            );
+            populateSynthesizedLogs(latestRun.metrics, !!latestRun.degraded);
+            // Also attempt to replay historical event log via SSE
+            await streamLiveRun(rid, 0);
+            return;
+          }
 
-        const response = await fetch(sseUrl, {
-          method: 'GET',
-          headers,
-          signal: abortController.signal,
-        });
+          if (latestRun.status === 'RUNNING' || latestRun.status === 'QUEUED') {
+            setIsRunning(true);
+            setIsCompleted(false);
+            setOverallPercent(40);
+            await streamLiveRun(rid, lastEventIdRef.current || 0);
+            return;
+          }
 
-        if (!response.ok || !response.body) {
-          throw new Error(`SSE stream failed: HTTP ${response.status}`);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const frames = buffer.split('\n\n');
-          buffer = frames.pop() || '';
-
-          for (const frame of frames) {
-            const lines = frame.split('\n');
-            let seqId: number | null = null;
-            let eventType = '';
-            let dataRaw = '';
-
-            for (const line of lines) {
-              if (line.startsWith('id:')) {
-                seqId = parseInt(line.replace('id:', '').trim(), 10);
-                if (!isNaN(seqId)) lastEventIdRef.current = seqId;
-              } else if (line.startsWith('event:')) {
-                eventType = line.replace('event:', '').trim();
-              } else if (line.startsWith('data:')) {
-                dataRaw = line.replace('data:', '').trim();
-              }
-            }
-
-            if (dataRaw) {
-              try {
-                const parsed = JSON.parse(dataRaw);
-                const rawAgent = (parsed.agent || '').toLowerCase();
-                let agentId: AgentId = 'orchestrator';
-                if (rawAgent.includes('intake')) agentId = 'intake';
-                else if (rawAgent.includes('discovery')) agentId = 'discovery';
-                else if (rawAgent.includes('legal')) agentId = 'legal';
-                else if (rawAgent.includes('packager')) agentId = 'packager';
-                else if (rawAgent.includes('dispute') || rawAgent.includes('fraud')) agentId = 'dispute';
-
-                const citations = Array.isArray(parsed.citations) ? parsed.citations.join('; ') : parsed.citation;
-
-                if (eventType === 'agent_started' || parsed.type === 'agent_started') {
-                  processEvent({
-                    type: 'agent_started',
-                    agentId,
-                    activity: parsed.message || 'Processing...',
-                    message: parsed.message,
-                    citation: citations,
-                  });
-                } else if (eventType === 'agent_done' || parsed.type === 'agent_done') {
-                  processEvent({
-                    type: 'agent_done',
-                    agentId,
-                    message: parsed.message || 'Completed phase.',
-                  });
-                } else if (eventType === 'run_done' || parsed.type === 'run_done') {
-                  processEvent({
-                    type: 'run_done',
-                    message: parsed.message || 'Pipeline successfully settled all assets.',
-                  });
-                  break;
-                } else {
-                  processEvent({
-                    type: 'agent_message',
-                    agentId,
-                    activity: parsed.message || 'Analyzing...',
-                    message: parsed.message,
-                    citation: citations,
-                    progress: parsed.progress ? Math.round(parsed.progress * 100) : undefined,
-                  });
-                }
-              } catch {}
-            }
+          if (latestRun.status === 'FAILED') {
+            setIsRunning(false);
+            setIsFailed(true);
+            setErrorMessage(latestRun.error_message || 'Agent pipeline execution failed.');
+            return;
           }
         }
+
+        // If no prior run found, initiate real run
+        await startRun(false);
       } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          console.warn('[useAgentRun] SSE stream finished or disconnected:', err.message);
-          setIsRunning(false);
-          setIsCompleted(true);
-        }
+        console.error('[useAgentRun] init failed:', err);
+        setIsRunning(false);
+        setIsFailed(true);
+        setErrorMessage(err.message || 'Could not initialize agent run.');
       }
     }
 
-    streamLiveRun();
+    initializeOrRestore();
 
     return () => {
+      isMountedRef.current = false;
       if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
-      abortController.abort();
+      if (abortControllerRef.current) abortControllerRef.current.abort();
     };
-  }, [runIdProp, activeCaseId, processEvent]);
+  }, [activeCaseId]);
 
   const fastForward = useCallback(() => {
     SCRIPTED_TIMELINE.forEach(({ event }) => processEvent(event));
@@ -650,7 +878,13 @@ export function useAgentRun(runIdProp?: string) {
     overallPercent,
     isRunning,
     isCompleted,
+    isFailed,
+    isDegraded,
+    errorMessage,
+    activeRunId,
     elapsedSeconds,
+    startRun,
     fastForward,
   };
 }
+

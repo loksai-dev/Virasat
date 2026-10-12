@@ -53,7 +53,10 @@ class PipelineOrchestrator:
         )
         AgentRunRepo.update_status(run_id, status="RUNNING")
 
-        stage_set = set(stages) if stages else {"extraction", "discovery", "shares", "claims", "fraud"}
+        if not stages or "all" in stages:
+            stage_set = {"extraction", "discovery", "shares", "claims", "fraud"}
+        else:
+            stage_set = set(stages)
 
         try:
             # 2. Stage 1: IntakeAgent

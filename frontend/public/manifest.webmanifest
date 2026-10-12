@@ -1,0 +1,27 @@
+{
+  "name": "Virasat — AI Estate Settlement Platform",
+  "short_name": "Virasat",
+  "description": "AI-powered estate settlement platform helping families identify assets, determine legal heirs and shares, prepare institutional claim packets, and track settlement progress.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF8F5",
+  "theme_color": "#0B1F3A",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

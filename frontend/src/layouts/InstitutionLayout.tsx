@@ -11,7 +11,7 @@ import {
   Bell, 
   HelpCircle 
 } from 'lucide-react';
-import { DisclaimerFooter, ToastProvider, LanguageSwitcher, PageTransition } from '@/components';
+import { DisclaimerFooter, ToastProvider, LanguageSwitcher, PageTransition, VirasatLogo } from '@/components';
 import { baseInstitutionDashboard } from '@/mocks/institutionDashboardData';
 
 export const InstitutionLayout: React.FC = () => {
@@ -34,9 +34,7 @@ export const InstitutionLayout: React.FC = () => {
             <div className="h-5 w-px bg-white/20" />
 
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-300">
-                <Building2 className="w-4 h-4" />
-              </div>
+              <VirasatLogo variant="emblem" theme="dark" size={34} />
               <div>
                 <div className="text-sm font-semibold text-white flex items-center gap-2">
                   <span>Virasat Operations Console</span>

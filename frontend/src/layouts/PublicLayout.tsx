@@ -12,7 +12,7 @@ import {
   Award,
   Globe
 } from 'lucide-react';
-import { LanguageSwitcher, ToastProvider, PageTransition } from '@/components';
+import { LanguageSwitcher, ToastProvider, PageTransition, VirasatLogo } from '@/components';
 import { useVirasatStore } from '@/store/useVirasatStore';
 
 export const PublicLayout: React.FC = () => {
@@ -56,23 +56,8 @@ export const PublicLayout: React.FC = () => {
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 md:px-8 py-3.5 transition-all">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* Logo Left */}
-          <Link to="/" className="flex items-center gap-3 group shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-accent to-gold p-0.5 shadow-md flex items-center justify-center">
-              <div className="w-full h-full bg-navy rounded-[10px] flex items-center justify-center text-white font-serif font-bold text-xl group-hover:bg-transparent transition-colors">
-                V
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-serif font-bold tracking-tight text-navy flex items-center gap-1.5 leading-none">
-                Virasat
-                <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 font-sans px-1.5 py-0.2 rounded font-semibold">
-                  AI Estate Care
-                </span>
-              </span>
-              <span className="text-[11px] text-slate-500 font-normal italic mt-0.5">
-                Every legacy, settled with care.
-              </span>
-            </div>
+          <Link to="/" className="flex items-center group shrink-0">
+            <VirasatLogo variant="full" theme="light" size="md" />
           </Link>
 
           {/* Center Links (Desktop 1440px) */}
@@ -172,17 +157,7 @@ export const PublicLayout: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
             {/* Brand column */}
             <div className="md:col-span-2 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-accent to-gold p-0.5 flex items-center justify-center">
-                  <div className="w-full h-full bg-navy rounded-[10px] flex items-center justify-center text-white font-serif font-bold text-lg">
-                    V
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xl font-serif font-bold tracking-tight text-white">Virasat</div>
-                  <div className="text-xs text-slate-400 italic">Every legacy, settled with care.</div>
-                </div>
-              </div>
+              <VirasatLogo variant="full" theme="dark" size="sm" />
               <p className="text-xs text-slate-300 leading-relaxed max-w-sm">
                 AI-powered estate settlement platform helping Indian families access and transfer bank accounts, insurance, investments, and property with dignity, transparency, and speed.
               </p>

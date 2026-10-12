@@ -17,9 +17,13 @@ import {
   Check, 
   ShieldCheck,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  AlertCircle,
+  RotateCcw
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useAgentRun, AgentId, AgentStatus } from '@/api/useAgentRun';
+import { estateService } from '@/api/estateService';
 import { useVirasatStore } from '@/store/useVirasatStore';
 import { baseCaseData } from '@/mocks/caseData';
 
@@ -30,7 +34,17 @@ export const AgentsLaunchPage: React.FC = () => {
 
   const activeCaseId = paramCaseId || caseId || baseCaseData.id;
 
-  // Use the simulated event stream hook
+  // Retrieve case overview for dynamic deceased name
+  const { data: caseOverview } = useQuery({
+    queryKey: ['caseOverview', activeCaseId],
+    queryFn: () => estateService.getOverview(activeCaseId),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const deceasedName = caseOverview?.caseDetails?.deceasedName || 
+    (activeCaseId.includes('mehta') ? 'Late Suresh Mehta' : 'Late Ramesh Sharma');
+
+  // Real pipeline orchestration hook
   const { 
     agents, 
     logs, 
@@ -39,9 +53,13 @@ export const AgentsLaunchPage: React.FC = () => {
     overallPercent, 
     isRunning, 
     isCompleted, 
+    isFailed,
+    isDegraded,
+    errorMessage,
     elapsedSeconds, 
+    startRun,
     fastForward 
-  } = useAgentRun(`run-${activeCaseId}`);
+  } = useAgentRun(activeCaseId);
 
   // Auto-scroll ref for terminal feed
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -111,6 +129,12 @@ export const AgentsLaunchPage: React.FC = () => {
               <span className="text-xs font-mono text-slate-400">
                 CASE {activeCaseId}
               </span>
+              {isDegraded && (
+                <span className="text-xs bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1.5">
+                  <ShieldAlert className="w-3 h-3 text-amber-600" />
+                  <span>Deterministic Fallback Mode</span>
+                </span>
+              )}
               {isRunning && (
                 <span className="text-xs bg-navy text-teal-300 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
@@ -120,7 +144,13 @@ export const AgentsLaunchPage: React.FC = () => {
               {isCompleted && (
                 <span className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
                   <Check className="w-3 h-3 stroke-[3]" />
-                  <span>Run Complete (20.0s)</span>
+                  <span>Run Complete {elapsedSeconds > 0 ? `(${elapsedSeconds}s)` : '✓'}</span>
+                </span>
+              )}
+              {isFailed && (
+                <span className="text-xs bg-rose-50 text-rose-800 border border-rose-200 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 text-rose-600" />
+                  <span>Run Failed</span>
                 </span>
               )}
             </div>
@@ -130,7 +160,7 @@ export const AgentsLaunchPage: React.FC = () => {
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-500 max-w-2xl leading-relaxed">
-              Six specialized legal and financial agents are querying national gateways, applying succession law, and assembling claim packets for Late Ramesh Sharma’s estate.
+              Six specialized legal and financial agents are querying national gateways, applying succession law, and assembling claim packets for {deceasedName}’s estate.
             </p>
           </div>
 
@@ -358,29 +388,57 @@ export const AgentsLaunchPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom Card: "View Results" CTA when completed */}
-          {isCompleted ? (
+          {/* Bottom Card: Status CTA & Recovery */}
+          {isFailed ? (
+            <div className="p-5 rounded-2xl bg-rose-50 border border-rose-300 shadow-soft text-left space-y-3 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-2 text-rose-800 font-bold text-sm">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                <span>Agent Execution Interrupted</span>
+              </div>
+              <p className="text-xs text-rose-700 leading-relaxed">
+                {errorMessage || 'The background analysis was interrupted or timed out. Your case records remain safe.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => startRun(true)}
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-rose-700 hover:bg-rose-800 text-white shadow-soft transition-all cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Retry Agent Analysis</span>
+              </button>
+            </div>
+          ) : isCompleted ? (
             <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 shadow-soft text-left space-y-3 animate-in zoom-in-95 duration-200">
               <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>All 6 Agents Completed! 12 Assets Located.</span>
+                <span>All 6 Agents Completed! {assetsLocated} Assets Located.</span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Autonomous estate discovery successfully reconciled ₹2.84 Cr across SBI, HDFC, ICICI, Zerodha, LIC, and EPFO with 4 Class-I legal heirs.
+                Autonomous estate discovery successfully reconciled {assetsLocated} asset folios across SBI, HDFC, ICICI, Zerodha, LIC, and EPFO with Class-I legal heirs.
               </p>
-              <Link
-                to={`/case/${activeCaseId}/overview`}
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs sm:text-sm font-semibold bg-navy hover:bg-navy-light text-white shadow-soft transition-all"
-              >
-                <span>View Results & Estate Dashboard</span>
-                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
-              </Link>
+              <div className="flex flex-col gap-2 pt-1">
+                <Link
+                  to={`/case/${activeCaseId}/overview`}
+                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs sm:text-sm font-semibold bg-navy hover:bg-navy-light text-white shadow-soft transition-all"
+                >
+                  <span>View Results & Estate Dashboard</span>
+                  <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => startRun(true)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-slate-600 hover:text-navy hover:underline"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Re-run estate analysis</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="p-4 rounded-xl bg-white border border-slate-200 text-xs text-slate-500 flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-teal-600 animate-spin" />
-                <span>Run completing in ~{Math.max(20 - elapsedSeconds, 1)}s...</span>
+                <span>Processing live agent mesh ({elapsedSeconds}s elapsed)...</span>
               </span>
               <button
                 type="button"
