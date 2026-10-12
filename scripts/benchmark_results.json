@@ -1,0 +1,81 @@
+{
+  "timestamp_utc": "2026-10-12 04:21:28 UTC",
+  "base_url": "https://virasat-api-275851497852.asia-south1.run.app",
+  "command": "python scripts/benchmark.py --url=https://virasat-api-275851497852.asia-south1.run.app",
+  "cold_start_initial_ms": 520.71,
+  "rules_engine_compute": {
+    "iterations": 50,
+    "min_ms": 0.099,
+    "max_ms": 0.129,
+    "mean_ms": 0.107,
+    "p50_ms": 0.106,
+    "p95_ms": 0.118
+  },
+  "full_agent_run_duration_sec": 37.44,
+  "agent_run_status": "DONE",
+  "endpoints": {
+    "GET /health": {
+      "samples": 10,
+      "min_ms": 63.58,
+      "max_ms": 89.46,
+      "mean_ms": 77.14,
+      "p50_ms": 77.46,
+      "p95_ms": 86.22,
+      "status_code": 200
+    },
+    "GET /ready": {
+      "samples": 10,
+      "min_ms": 619.61,
+      "max_ms": 2081.78,
+      "mean_ms": 996.54,
+      "p50_ms": 911.62,
+      "p95_ms": 1682.44,
+      "status_code": 200
+    },
+    "GET /api/cases/{id}/overview": {
+      "samples": 10,
+      "min_ms": 626.44,
+      "max_ms": 1249.15,
+      "mean_ms": 750.48,
+      "p50_ms": 670.21,
+      "p95_ms": 1107.76,
+      "status_code": 200
+    },
+    "GET /api/cases/{id}/shares": {
+      "samples": 10,
+      "min_ms": 449.95,
+      "max_ms": 774.58,
+      "mean_ms": 506.86,
+      "p50_ms": 473.16,
+      "p95_ms": 655.61,
+      "status_code": 200
+    },
+    "GET /api/cases/{id}/graph": {
+      "samples": 10,
+      "min_ms": 327.24,
+      "max_ms": 484.92,
+      "mean_ms": 366.4,
+      "p50_ms": 345.61,
+      "p95_ms": 469.05,
+      "status_code": 200
+    },
+    "GET /api/cases/{id}/claims": {
+      "samples": 10,
+      "min_ms": 265.14,
+      "max_ms": 3349.46,
+      "mean_ms": 637.2,
+      "p50_ms": 296.59,
+      "p95_ms": 2134.4,
+      "status_code": 200
+    },
+    "GET /api/cases/{id}/disputes": {
+      "samples": 10,
+      "min_ms": 218.4,
+      "max_ms": 440.46,
+      "mean_ms": 278.63,
+      "p50_ms": 244.64,
+      "p95_ms": 433.91,
+      "status_code": 200
+    }
+  }
+}

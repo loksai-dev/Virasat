@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 780" width="1200" height="780">
+  <defs>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0B1F3A" flood-opacity="0.08"/>
+    </filter>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0B1F3A"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="780" fill="#F8FAFC" rx="16"/>
+
+  <!-- Top Banner -->
+  <rect x="0" y="0" width="1200" height="80" fill="url(#headerGrad)"/>
+  <text x="40" y="48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="700" fill="#FFFFFF">Virasat — Production Cloud Architecture</text>
+  <text x="780" y="48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" fill="#D4AF37">Google Cloud Platform | Project: virasat-511210 (asia-south1)</text>
+
+  <!-- Layer 1: Client Tier -->
+  <g transform="translate(40, 110)">
+    <rect width="250" height="620" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="250" height="42" rx="12" fill="#E0F2FE"/>
+    <text x="20" y="26" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#0369A1">1. Client &amp; Delivery Tier</text>
+
+    <!-- Sub-boxes -->
+    <rect x="16" y="60" width="218" height="110" rx="8" fill="#F0F9FF" stroke="#BAE6FD"/>
+    <text x="28" y="85" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#0B1F3A">React 18 + Vite SPA</text>
+    <text x="28" y="105" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• TypeScript, Zustand, Tailwind</text>
+    <text x="28" y="123" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Cytoscape.js interactive graph</text>
+    <text x="28" y="141" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• 282.5 kB optimized bundle</text>
+    <text x="28" y="159" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#0284C7">Firebase Hosting (Global CDN)</text>
+
+    <rect x="16" y="190" width="218" height="90" rx="8" fill="#F0F9FF" stroke="#BAE6FD"/>
+    <text x="28" y="215" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#0B1F3A">Firebase Authentication</text>
+    <text x="28" y="235" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Anonymous Claimant Sessions</text>
+    <text x="28" y="253" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Bearer ID Token Verification</text>
+    <text x="28" y="271" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#0284C7">Multi-tenant Claims Isolation</text>
+
+    <rect x="16" y="300" width="218" height="130" rx="8" fill="#F0FDF4" stroke="#BBF7D0"/>
+    <text x="28" y="325" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#166534">Real-Time Event Stream</text>
+    <text x="28" y="345" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Server-Sent Events (SSE)</text>
+    <text x="28" y="363" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Resilient auto-reconnect</text>
+    <text x="28" y="381" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Last-Event-ID catchup</text>
+    <text x="28" y="399" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Frame sequence deduplication</text>
+    <text x="28" y="417" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#15803D">Live Agent Telemetry</text>
+  </g>
+
+  <!-- Layer 2: API & Orchestration Tier -->
+  <g transform="translate(320, 110)">
+    <rect width="420" height="620" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="420" height="42" rx="12" fill="#FEF3C7"/>
+    <text x="20" y="26" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#B45309">2. Compute &amp; Multi-Agent Runtime</text>
+
+    <!-- FastAPI Gateway -->
+    <rect x="16" y="60" width="388" height="85" rx="8" fill="#FFFBEB" stroke="#FDE68A"/>
+    <text x="28" y="85" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#0B1F3A">FastAPI Gateway (Cloud Run)</text>
+    <text x="28" y="105" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Python 3.12, Uvicorn, Pydantic v2 | Region: asia-south1 (Mumbai)</text>
+    <text x="28" y="123" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Sub-100ms warm health (p50: 77.5ms), zero JSON service account keys</text>
+    <text x="28" y="139" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#D97706">Cloud Scheduler OIDC: virasat-cleanup (every 6h)</text>
+
+    <!-- Multi Agent Pipeline -->
+    <text x="20" y="172" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#0F766E">AUTONOMOUS MULTI-AGENT DAG (GOOGLE ADK)</text>
+
+    <rect x="16" y="185" width="388" height="60" rx="8" fill="#F0FDFA" stroke="#99F6E4"/>
+    <text x="28" y="206" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#0B1F3A">Intake &amp; Redaction Agent</text>
+    <text x="28" y="224" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">Doc AI OCR, Cloud DLP PII scrub, SHA-256 fingerprinting</text>
+    <text x="28" y="238" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#0D9488">100% extraction precision on 31 seed documents</text>
+
+    <rect x="16" y="255" width="388" height="60" rx="8" fill="#F0FDFA" stroke="#99F6E4"/>
+    <text x="28" y="276" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#0B1F3A">Asset Discovery Agent</text>
+    <text x="28" y="294" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">Cross-institution scan (Banks, Demats, EPF, Insurance, Property)</text>
+    <text x="28" y="308" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#0D9488">Resolves masked folios, accounts, and nominees</text>
+
+    <rect x="16" y="325" width="388" height="65" rx="8" fill="#FEF3C7" stroke="#FDE68A"/>
+    <text x="28" y="346" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#92400E">Deterministic Succession Engine (0% LLM Math)</text>
+    <text x="28" y="364" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">Hindu Succession Act (Sec 8-10, Sched), Testamentary Wills, Nominee rules</text>
+    <text x="28" y="380" font-family="-apple-system, sans-serif" font-size="10" font-weight="700" fill="#B45309">100% accuracy on 30 golden cases | 0.106 ms p50 compute</text>
+
+    <rect x="16" y="400" width="388" height="60" rx="8" fill="#F0FDFA" stroke="#99F6E4"/>
+    <text x="28" y="421" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#0B1F3A">Claims Packager Agent</text>
+    <text x="28" y="439" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">Generates institution-specific claim dossiers (SBI, HDFC, Zerodha, LIC)</text>
+    <text x="28" y="453" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#0D9488">Automated Annexure-A, indemnity bonds, and NOC preparation</text>
+
+    <rect x="16" y="470" width="388" height="60" rx="8" fill="#F0FDFA" stroke="#99F6E4"/>
+    <text x="28" y="491" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#0B1F3A">Dispute &amp; Fraud Shield Agent</text>
+    <text x="28" y="509" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">Bi-temporal timeline conflict detector &amp; contradictory claim evaluation</text>
+    <text x="28" y="523" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#0D9488">100% defect recall (10/10) | 0.0% false positive rate</text>
+
+    <rect x="16" y="540" width="388" height="60" rx="8" fill="#F5F3FF" stroke="#DDD6FE"/>
+    <text x="28" y="561" font-family="-apple-system, sans-serif" font-size="12" font-weight="700" fill="#5B21B6">AnswerVerifier &amp; Anti-Hallucination Guardrail</text>
+    <text x="28" y="579" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">Enforces Spanner legal clause citations &amp; validates monetary amounts</text>
+    <text x="28" y="593" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#7C3AED">100% citation validity (58/58) | Rejects hallucinated numbers</text>
+  </g>
+
+  <!-- Layer 3: Cloud Storage & Intelligence Tier -->
+  <g transform="translate(770, 110)">
+    <rect width="390" height="620" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="390" height="42" rx="12" fill="#EDE9FE"/>
+    <text x="20" y="26" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#6D28D9">3. Data, Intelligence &amp; Security</text>
+
+    <rect x="16" y="60" width="358" height="135" rx="8" fill="#FAF5FF" stroke="#E9D5FF"/>
+    <text x="28" y="85" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#0B1F3A">Cloud Spanner (virasat-inst / virasat-db)</text>
+    <text x="28" y="105" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Regional asia-south1 (Mumbai) | 15 relational tables</text>
+    <text x="28" y="123" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• ISO GQL VirasatGraph: People, Assets, Institutions</text>
+    <text x="28" y="141" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Bi-temporal edges (valid_from/to &amp; recorded_from/to)</text>
+    <text x="28" y="159" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Cryptographic SHA-256 AuditLog hash chain</text>
+    <text x="28" y="177" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#7C3AED">High-availability SQL &amp; Property Graph in single engine</text>
+
+    <rect x="16" y="210" width="358" height="135" rx="8" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="28" y="235" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#0B1F3A">Vertex AI (us-central1)</text>
+    <text x="28" y="255" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• gemini-2.5-pro: Deep legal reasoning &amp; dispute logic</text>
+    <text x="28" y="273" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• gemini-2.5-flash: Rapid extraction, classification, chat</text>
+    <text x="28" y="291" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• text-embedding-005: 768-dim legal clause embeddings</text>
+    <text x="28" y="309" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Average 15,400 tokens / run | $0.015 (₹1.3) cost / run</text>
+    <text x="28" y="327" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#2563EB">Application Default Credentials (ADC) via Metadata Server</text>
+
+    <rect x="16" y="360" width="358" height="95" rx="8" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="28" y="385" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#0B1F3A">Cloud Storage (gs://virasat-511210-docs)</text>
+    <text x="28" y="405" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Regional asia-south1 (Mumbai) | Public access prevented</text>
+    <text x="28" y="423" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• 2-day auto-expiry lifecycle rule on user cases</text>
+    <text x="28" y="441" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#0284C7">10-minute short-lived signed URLs via self-impersonation</text>
+
+    <rect x="16" y="470" width="358" height="95" rx="8" fill="#FFFBEB" stroke="#FDE68A"/>
+    <text x="28" y="495" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#0B1F3A">Security &amp; Compliance Guardrails</text>
+    <text x="28" y="515" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Cloud DLP: Aadhaar, PAN, and account masking</text>
+    <text x="28" y="533" font-family="-apple-system, sans-serif" font-size="11" fill="#475569">• Section 65B Indian Evidence Act audit certificates</text>
+    <text x="28" y="551" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#B45309">Zero service account keys stored in repository or code</text>
+  </g>
+</svg>

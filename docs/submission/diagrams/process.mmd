@@ -1,0 +1,27 @@
+flowchart TD
+    classDef startNode fill:#0B1F3A,stroke:#D4AF37,stroke-width:2px,color:#FFFFFF;
+    classDef agentNode fill:#E6FFFA,stroke:#0D9488,stroke-width:2px,color:#0B1F3A;
+    classDef ruleNode fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#0B1F3A;
+    classDef humanNode fill:#EFF6FF,stroke:#2563EB,stroke-width:2px,color:#0B1F3A;
+    classDef outNode fill:#F0FDF4,stroke:#16A34A,stroke-width:2px,color:#0B1F3A;
+    classDef auditNode fill:#F5F3FF,stroke:#7C3AED,stroke-width:2px,color:#0B1F3A;
+
+    Upload["1. Family Uploads Documents<br/>(Death cert, will, bank & demat statements)"]:::startNode
+    Intake["2. Intake & Discovery Agents<br/>(Doc AI OCR, Cloud DLP PII scrub, asset scan)"]:::agentNode
+    Succession["3. Deterministic Rules Engine<br/>(Class I/II heirs & shares, 0% LLM math)"]:::ruleNode
+    Dispute["4. Dispute & Fraud Shield<br/>(Nominee vs heir conflicts, forged wills)"]:::agentNode
+    Packets["5. Claims Packager Agent<br/>(Generates SBI, HDFC, Zerodha, LIC dossiers)"]:::agentNode
+    HumanReview{"6. Family Review & Consent<br/>(Approve shares, verify claim packets)"}:::humanNode
+    Institution["7. Simulated Institution APIs<br/>(Disbursement, status tracking & SLA)"]:::outNode
+    AuditTrail["8. Cryptographic Audit Trail<br/>(SHA-256 hash-chain & Section 65B log)"]:::auditNode
+
+    Upload --> Intake
+    Intake --> Succession
+    Succession --> Dispute
+    Succession --> Packets
+    Dispute --> HumanReview
+    Packets --> HumanReview
+    HumanReview -->|Approved| Institution
+    HumanReview -.->|Edit / Recompute| Succession
+    Institution --> AuditTrail
+    HumanReview --> AuditTrail

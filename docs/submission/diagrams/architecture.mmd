@@ -1,0 +1,52 @@
+flowchart TD
+    classDef client fill:#E0F2FE,stroke:#0284C7,stroke-width:2px,color:#0B1F3A;
+    classDef run fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#0B1F3A;
+    classDef agent fill:#CCFBF1,stroke:#0D9488,stroke-width:2px,color:#0B1F3A;
+    classDef cloud fill:#F1F5F9,stroke:#475569,stroke-width:2px,color:#0B1F3A;
+    classDef db fill:#EDE9FE,stroke:#7C3AED,stroke-width:2px,color:#0B1F3A;
+
+    subgraph ClientLayer["Client & Delivery Tier"]
+        UI["React 18 + Vite + TypeScript Web App<br/>(Hosted on Firebase Hosting)"]:::client
+        Auth["Firebase Authentication<br/>(Anonymous & Bearer ID Tokens)"]:::client
+    end
+
+    subgraph RuntimeLayer["Compute & API Gateway"]
+        CloudRun["FastAPI Backend on Cloud Run (asia-south1)<br/>(Async REST & SSE Event Streaming)"]:::run
+        Scheduler["Cloud Scheduler (asia-south1)<br/>(Scheduled cleanup via OIDC)"]:::run
+    end
+
+    subgraph AgentLayer["Agentic Orchestration (Google ADK)"]
+        Orch["Orchestrator Agent (DAG & SSE events)"]:::agent
+        Intake["Intake Agent (OCR & PII scrubbing)"]:::agent
+        Discovery["Asset Discovery Agent (Holdings scan)"]:::agent
+        Succession["Rules Engine (Deterministic HSA Section 8-10)"]:::agent
+        Packager["Claims Packager Agent (Dossiers & Annexures)"]:::agent
+        Fraud["Dispute & Fraud Shield (Bi-temporal audit)"]:::agent
+    end
+
+    subgraph DataAILayer["Google Cloud Data & Intelligence Tier"]
+        Spanner["Cloud Spanner Graph (virasat-inst / virasat-db)<br/>(Relational GoogleSQL + ISO GQL Property Graph)"]:::db
+        VertexAI["Vertex AI (us-central1)<br/>(Gemini 2.5 Pro + Flash + text-embedding-005)"]:::cloud
+        GCS["Cloud Storage (gs://virasat-511210-docs)<br/>(Document Vaults & Dossier PDFs)"]:::cloud
+        DLP["Cloud DLP (Sensitive Data Protection)<br/>(PII Masking & Privacy Guardrails)"]:::cloud
+    end
+
+    UI -->|HTTPS REST & SSE Stream| CloudRun
+    UI -.->|Token Auth| Auth
+    Scheduler -->|OIDC POST /admin/cleanup| CloudRun
+    CloudRun --> Orch
+
+    Orch --> Intake
+    Orch --> Discovery
+    Orch --> Succession
+    Orch --> Packager
+    Orch --> Fraud
+
+    Intake --> GCS
+    Intake --> DLP
+    Discovery --> VertexAI
+    Succession --> Spanner
+    Packager --> VertexAI
+    Packager --> GCS
+    Fraud --> VertexAI
+    Fraud --> Spanner
