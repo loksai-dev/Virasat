@@ -43,12 +43,25 @@ def bump_case_version(transaction: Transaction, case_id: str) -> int:
     return next_version
 
 
+def resolve_case_alias(case_id: str) -> str:
+    """Normalize user-friendly case aliases to canonical case IDs."""
+    if not case_id:
+        return case_id
+    cid = case_id.strip()
+    if cid.upper() in ("VR-2026-MEHTA", "MEHTA"):
+        return "VR-2026-0187"
+    if cid.upper() in ("VR-2026-SHARMA", "SHARMA"):
+        return "VR-2026-0142"
+    return cid
+
+
 # ---------------------------------------------------------------------------
 # Cases Repository
 # ---------------------------------------------------------------------------
 class CasesRepo:
     @staticmethod
     def get(case_id: str) -> dict[str, Any] | None:
+        case_id = resolve_case_alias(case_id)
         def _get(snap: Snapshot):
             sql = """
             SELECT case_id, owner_uid, seed_key, mode, title, status,
@@ -1834,6 +1847,7 @@ class AgentRunRepo:
 
     @staticmethod
     def get_active_by_case(case_id: str) -> dict[str, Any] | None:
+        case_id = resolve_case_alias(case_id)
         def _get(snap: Snapshot):
             sql = """
             SELECT run_id, case_id, trigger_kind, status, degraded, rerun_pending, case_version, started_at, finished_at, metrics
@@ -1855,6 +1869,7 @@ class AgentRunRepo:
 
     @staticmethod
     def get_latest_by_case(case_id: str) -> dict[str, Any] | None:
+        case_id = resolve_case_alias(case_id)
         def _get(snap: Snapshot):
             sql = """
             SELECT run_id, case_id, trigger_kind, status, degraded, rerun_pending, case_version, started_at, finished_at, metrics

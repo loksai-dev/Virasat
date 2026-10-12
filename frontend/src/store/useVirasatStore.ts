@@ -5,6 +5,7 @@ export type UserRole = 'family' | 'institution' | 'judge' | null;
 export type CaseScenario = 'simple' | 'complex' | 'disputed';
 export type CaseMode = 'prefilled' | 'from_documents';
 export type SupportedLanguage = 'en' | 'hi' | 'te';
+export type RunExecutionStatus = 'IDLE' | 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED' | 'CANCELLED';
 
 export interface ToastMessage {
   id: string;
@@ -23,12 +24,15 @@ interface VirasatState {
   language: SupportedLanguage;
   tourActive: boolean;
   activeRunId: string | null;
+  activeRunStatus: RunExecutionStatus;
+  activeAgentCount: number;
   toasts: ToastMessage[];
   
   // Actions
   setRole: (role: UserRole) => void;
   setCaseId: (caseId: string) => void;
   setActiveRunId: (activeRunId: string | null) => void;
+  setActiveRunState: (status: RunExecutionStatus, activeCount?: number) => void;
   setScenario: (scenario: CaseScenario) => void;
   setMode: (mode: CaseMode) => void;
   setDataVersion: (dataVersion: number) => void;
@@ -44,6 +48,8 @@ export const useVirasatStore = create<VirasatState>()(
       role: null, // Disabled until a role is chosen
       caseId: 'VR-2026-0142',
       activeRunId: null,
+      activeRunStatus: 'DONE',
+      activeAgentCount: 0,
       scenario: 'complex', // Default scenario: Complex (Sharma)
       mode: 'prefilled',
       dataVersion: 1,
@@ -54,6 +60,11 @@ export const useVirasatStore = create<VirasatState>()(
       setRole: (role) => set({ role }),
       setCaseId: (caseId) => set({ caseId }),
       setActiveRunId: (activeRunId) => set({ activeRunId }),
+      setActiveRunState: (activeRunStatus, activeAgentCount) =>
+        set((state) => ({
+          activeRunStatus,
+          activeAgentCount: activeAgentCount !== undefined ? activeAgentCount : state.activeAgentCount,
+        })),
       setScenario: (scenario) => set({ scenario }),
       setMode: (mode) => set({ mode }),
       setDataVersion: (dataVersion) => set({ dataVersion }),
@@ -78,6 +89,8 @@ export const useVirasatStore = create<VirasatState>()(
         role: state.role,
         caseId: state.caseId,
         activeRunId: state.activeRunId,
+        activeRunStatus: state.activeRunStatus,
+        activeAgentCount: state.activeAgentCount,
         scenario: state.scenario,
         mode: state.mode,
         dataVersion: state.dataVersion,

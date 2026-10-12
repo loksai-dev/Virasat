@@ -176,6 +176,7 @@ class RunManager:
 
         try:
             terminal_reached = False
+            last_event_type = ""
             while not terminal_reached:
                 # 1. Fetch any new events from Spanner >= current_seq + 1
                 new_events = AgentEventRepo.list_events_after(run_id, after_seq=current_seq)
@@ -185,6 +186,7 @@ class RunManager:
                     if seq > current_seq:
                         current_seq = seq
                         ev_type = ev.get("event_type", "agent_message")
+                        last_event_type = ev_type
                         # Format SSE payload
                         data_payload = json.dumps({
                             "seq": ev["seq"],
@@ -225,6 +227,24 @@ class RunManager:
                 if (now - last_heartbeat_time).total_seconds() >= 15.0:
                     yield ": heartbeat\n\n"
                     last_heartbeat_time = now
+
+            # Ensure client receives an explicit terminal event before generator closes
+            if terminal_reached and last_event_type not in ("run_done", "run_failed"):
+                run_state = AgentRunRepo.get(run_id)
+                st = run_state.get("status") if run_state else "DONE"
+                term_ev = "run_done" if st == "DONE" else "run_failed"
+                current_seq += 1
+                term_payload = json.dumps({
+                    "seq": current_seq,
+                    "type": term_ev,
+                    "agent": "orchestrator",
+                    "message": "Autonomous mesh completed." if term_ev == "run_done" else "Autonomous mesh execution failed.",
+                    "progress": 1.0 if term_ev == "run_done" else 0.0,
+                    "citations": [],
+                    "degraded": bool(run_state.get("degraded", False)) if run_state else False,
+                    "payload": run_state.get("metrics", {}) if run_state else {},
+                })
+                yield f"id: {current_seq}\nevent: {term_ev}\ndata: {term_payload}\n\n"
 
         finally:
             unsubscribe_case_events(run_id, _on_event)

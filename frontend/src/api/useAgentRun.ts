@@ -358,40 +358,96 @@ const SCRIPTED_TIMELINE: ScriptedEvent[] = [
 import { API_CONFIG } from './config';
 import { estateService } from './estateService';
 import { getFirebaseIdToken } from '@/lib/firebase';
-import { useVirasatStore } from '@/store/useVirasatStore';
+import { useVirasatStore, RunExecutionStatus } from '@/store/useVirasatStore';
+
+export type SSEConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'closed' | 'error';
+
+export function normalizeCaseId(rawId?: string): string {
+  if (!rawId) return 'VR-2026-0142';
+  const s = rawId.trim();
+  if (s.toUpperCase() === 'VR-2026-MEHTA' || s.toLowerCase() === 'mehta') {
+    return 'VR-2026-0187';
+  }
+  if (s.toUpperCase() === 'VR-2026-SHARMA' || s.toLowerCase() === 'sharma') {
+    return 'VR-2026-0142';
+  }
+  return s;
+}
 
 export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
   const { 
     caseId: storeCaseId, 
     activeRunId: storeRunId, 
-    setActiveRunId 
+    setActiveRunId,
+    setActiveRunState
   } = useVirasatStore();
 
-  const activeCaseId = caseIdProp && !caseIdProp.startsWith('run-') 
+  const rawCaseId = caseIdProp && !caseIdProp.startsWith('run-') 
     ? caseIdProp 
     : storeCaseId || 'VR-2026-0142';
 
+  const canonicalCaseId = normalizeCaseId(rawCaseId);
+  const isMehtaCase = canonicalCaseId.includes('0187') || rawCaseId.toLowerCase().includes('mehta');
+  const defaultTotalAssets = isMehtaCase ? 8 : 12;
+
   const [agents, setAgents] = useState<AgentState[]>(INITIAL_AGENTS);
   const [logs, setLogs] = useState<ActivityLogItem[]>([]);
-  const [assetsLocated, setAssetsLocated] = useState<number>(1);
-  const totalAssets = 12;
-  const [overallPercent, setOverallPercent] = useState<number>(0);
+  const [assetsLocated, setAssetsLocated] = useState<number>(isMehtaCase ? 8 : 12);
+  const [totalAssets] = useState<number>(defaultTotalAssets);
+  const [overallPercent, setOverallPercent] = useState<number>(100);
+  
+  // Normalized single-source execution status
+  const [runStatus, setRunStatus] = useState<RunExecutionStatus>('DONE');
+  const [isLoadingInitial, setIsLoadingInitial] = useState<boolean>(true);
   const [isRunning, setIsRunning] = useState<boolean>(false);
-  const [isCompleted, setIsCompleted] = useState<boolean>(false);
+  const [isCompleted, setIsCompleted] = useState<boolean>(true);
   const [isFailed, setIsFailed] = useState<boolean>(false);
   const [isDegraded, setIsDegraded] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(20);
+  const [sseConnection, setSseConnection] = useState<SSEConnectionStatus>('closed');
+  
   const [activeRunId, setLocalRunId] = useState<string | null>(
     runIdProp && !runIdProp.startsWith('run-VR-') ? runIdProp : storeRunId
   );
 
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef = useRef<number>(Date.now());
+  const startTimeRef = useRef<number>(0);
   const lastEventIdRef = useRef<number | null>(null);
   const seenSeqsRef = useRef<Set<number>>(new Set());
   const abortControllerRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef<boolean>(true);
+  const isInitializingRef = useRef<boolean>(false);
+
+  // Stop elapsed timer cleanly
+  const stopElapsedTimer = useCallback(() => {
+    if (elapsedTimerRef.current) {
+      clearInterval(elapsedTimerRef.current);
+      elapsedTimerRef.current = null;
+    }
+  }, []);
+
+  // Start elapsed timer
+  const startElapsedTimer = useCallback((initialSecs: number = 0) => {
+    stopElapsedTimer();
+    startTimeRef.current = Date.now() - initialSecs * 1000;
+    elapsedTimerRef.current = setInterval(() => {
+      if (startTimeRef.current > 0) {
+        setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      }
+    }, 500);
+  }, [stopElapsedTimer]);
+
+  // Append log item with deduplication and cap at 200 items
+  const addLogItem = useCallback((item: ActivityLogItem) => {
+    setLogs((prev) => {
+      if (prev.some((p) => p.id === item.id || (p.agentId === item.agentId && p.message === item.message))) {
+        return prev;
+      }
+      const next = [...prev, item];
+      return next.length > 200 ? next.slice(next.length - 200) : next;
+    });
+  }, []);
 
   const mapAgentName = useCallback((raw?: string): AgentId => {
     const s = (raw || '').toLowerCase();
@@ -411,22 +467,19 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
       setAgents((prev) =>
         prev.map((a) =>
           a.id === event.agentId
-            ? { ...a, status: 'working', activity: event.activity || a.activity, progress: Math.max(a.progress, 20) }
+            ? { ...a, status: 'working', activity: event.activity || a.activity, progress: Math.max(a.progress, 25) }
             : a
         )
       );
       if (event.message) {
-        setLogs((prev) => [
-          ...prev,
-          {
-            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            timestamp: timeStr,
-            agentId: event.agentId!,
-            agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Agent',
-            message: event.message!,
-            citation: event.citation,
-          },
-        ]);
+        addLogItem({
+          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          timestamp: timeStr,
+          agentId: event.agentId!,
+          agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Agent',
+          message: event.message!,
+          citation: event.citation,
+        });
       }
     } else if (event.type === 'agent_message' && event.agentId) {
       setAgents((prev) =>
@@ -442,17 +495,14 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
         )
       );
       if (event.message) {
-        setLogs((prev) => [
-          ...prev,
-          {
-            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            timestamp: timeStr,
-            agentId: event.agentId!,
-            agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Agent',
-            message: event.message!,
-            citation: event.citation,
-          },
-        ]);
+        addLogItem({
+          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          timestamp: timeStr,
+          agentId: event.agentId!,
+          agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Agent',
+          message: event.message!,
+          citation: event.citation,
+        });
       }
     } else if (event.type === 'agent_done' && event.agentId) {
       setAgents((prev) =>
@@ -463,65 +513,61 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
         )
       );
       if (event.message) {
-        setLogs((prev) => [
-          ...prev,
-          {
-            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            timestamp: timeStr,
-            agentId: event.agentId!,
-            agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Agent',
-            message: event.message!,
-            citation: event.citation,
-            isMilestone: true,
-          },
-        ]);
+        addLogItem({
+          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          timestamp: timeStr,
+          agentId: event.agentId!,
+          agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Agent',
+          message: event.message!,
+          citation: event.citation,
+          isMilestone: true,
+        });
       }
     } else if (event.type === 'progress') {
       if (event.assetsLocated !== undefined) setAssetsLocated(event.assetsLocated);
       if (event.percent !== undefined) setOverallPercent(event.percent);
       if (event.message) {
-        setLogs((prev) => [
-          ...prev,
-          {
-            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            timestamp: timeStr,
-            agentId: event.agentId || 'orchestrator',
-            agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Orchestrator',
-            message: event.message!,
-            citation: event.citation,
-          },
-        ]);
+        addLogItem({
+          id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          timestamp: timeStr,
+          agentId: event.agentId || 'orchestrator',
+          agentName: INITIAL_AGENTS.find((a) => a.id === event.agentId)?.name || 'Orchestrator',
+          message: event.message!,
+          citation: event.citation,
+        });
       }
     } else if (event.type === 'run_done') {
+      stopElapsedTimer();
       setAgents((prev) => prev.map((a) => ({ ...a, status: 'done', progress: 100, activity: 'Completed successfully ✓' })));
-      setAssetsLocated((prev) => Math.max(prev, 12));
+      setAssetsLocated((prev) => Math.max(prev, defaultTotalAssets));
       setOverallPercent(100);
+      setRunStatus('DONE');
       setIsRunning(false);
       setIsCompleted(true);
+      setIsFailed(false);
+      setSseConnection('closed');
+      setActiveRunState('DONE', 0);
       if (event.message) {
-        setLogs((prev) => [
-          ...prev,
-          {
-            id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            timestamp: timeStr,
-            agentId: 'orchestrator',
-            agentName: 'Settlement Orchestrator',
-            message: event.message!,
-            citation: 'Master Estate Dossier Ready',
-            isMilestone: true,
-          },
-        ]);
+        addLogItem({
+          id: `evt-done-${Date.now()}`,
+          timestamp: timeStr,
+          agentId: 'orchestrator',
+          agentName: 'Settlement Orchestrator',
+          message: event.message!,
+          citation: 'Master Estate Dossier Ready',
+          isMilestone: true,
+        });
       }
     }
-  }, []);
+  }, [addLogItem, defaultTotalAssets, setActiveRunState, stopElapsedTimer]);
 
   const populateSynthesizedLogs = useCallback((metrics: Record<string, any> = {}, degraded = false) => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const assetsFound = metrics.assets_located ?? 12;
-    const heirsFound = metrics.heirs_verified ?? 4;
-    const claimsFound = metrics.claims_prepared ?? 12;
-    const disputesFound = metrics.disputes_found ?? 1;
+    const assetsFound = metrics.assets_located ?? defaultTotalAssets;
+    const heirsFound = metrics.heirs_verified ?? (isMehtaCase ? 2 : 4);
+    const claimsFound = metrics.claims_prepared ?? defaultTotalAssets;
+    const disputesFound = metrics.disputes_found ?? (isMehtaCase ? 0 : 1);
 
     setLogs([
       {
@@ -529,7 +575,7 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
         timestamp: timeStr,
         agentId: 'orchestrator',
         agentName: 'Settlement Orchestrator',
-        message: `Restored verified run session for Case ${activeCaseId}.`,
+        message: `Restored verified run session for Case ${rawCaseId}.`,
         citation: degraded ? 'Deterministic Rules Engine (Degraded Mode)' : 'Virasat Core Engine v2.6',
         isMilestone: true,
       },
@@ -584,7 +630,7 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
         isMilestone: true,
       },
     ]);
-  }, [activeCaseId]);
+  }, [defaultTotalAssets, isMehtaCase, rawCaseId]);
 
   const streamLiveRun = useCallback(async (targetRunId: string, fromSeq: number = 0) => {
     if (abortControllerRef.current) {
@@ -592,6 +638,7 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
     }
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
+    setSseConnection('connecting');
 
     try {
       const token = await getFirebaseIdToken();
@@ -617,6 +664,8 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
       if (!response.ok || !response.body) {
         throw new Error(`SSE stream connection failed: HTTP ${response.status}`);
       }
+
+      setSseConnection('connected');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
@@ -669,16 +718,18 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
                   type: 'run_done',
                   message: parsed.message || 'Pipeline successfully settled all assets.',
                 });
-                if (parsed.payload) {
-                  const p = parsed.payload;
-                  if (p.assets_located) setAssetsLocated(p.assets_located);
+                if (parsed.payload?.assets_located) {
+                  setAssetsLocated(parsed.payload.assets_located);
                 }
-                setIsRunning(false);
-                setIsCompleted(true);
                 return;
               } else if (eventType === 'run_failed' || parsed.type === 'run_failed') {
+                stopElapsedTimer();
+                setRunStatus('FAILED');
                 setIsRunning(false);
+                setIsCompleted(false);
                 setIsFailed(true);
+                setSseConnection('closed');
+                setActiveRunState('FAILED', 0);
                 setErrorMessage(parsed.message || 'Agent execution encountered an unrecoverable failure.');
                 return;
               } else if (eventType === 'agent_started' || parsed.type === 'agent_started') {
@@ -720,30 +771,70 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
           }
         }
       }
+
+      // Stream terminated normally
+      setSseConnection('closed');
+      try {
+        const runStatusRes = await estateService.getRun(targetRunId);
+        if (runStatusRes.status === 'DONE') {
+          stopElapsedTimer();
+          setRunStatus('DONE');
+          setIsRunning(false);
+          setIsCompleted(true);
+          setIsFailed(false);
+          setOverallPercent(100);
+          setAgents((prev) => prev.map((a) => ({ ...a, status: 'done', progress: 100, activity: 'Completed successfully ✓' })));
+          setActiveRunState('DONE', 0);
+          if (runStatusRes.metrics?.assets_located) {
+            setAssetsLocated(runStatusRes.metrics.assets_located);
+          }
+        } else if (runStatusRes.status === 'FAILED') {
+          stopElapsedTimer();
+          setRunStatus('FAILED');
+          setIsRunning(false);
+          setIsCompleted(false);
+          setIsFailed(true);
+          setErrorMessage(runStatusRes.error_message || 'Agent run failed.');
+          setActiveRunState('FAILED', 0);
+        }
+      } catch {
+        // Keep state
+      }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         console.warn('[useAgentRun] SSE stream finished or disconnected:', err.message);
+        setSseConnection('disconnected');
         // Verify current run status via REST
         try {
-          const runStatus = await estateService.getRun(targetRunId);
-          if (runStatus.status === 'DONE') {
+          const runStatusRes = await estateService.getRun(targetRunId);
+          if (runStatusRes.status === 'DONE') {
+            stopElapsedTimer();
+            setRunStatus('DONE');
             setIsRunning(false);
             setIsCompleted(true);
+            setIsFailed(false);
             setOverallPercent(100);
             setAgents((prev) => prev.map((a) => ({ ...a, status: 'done', progress: 100, activity: 'Completed successfully ✓' })));
-          } else if (runStatus.status === 'FAILED') {
+            setActiveRunState('DONE', 0);
+          } else if (runStatusRes.status === 'FAILED') {
+            stopElapsedTimer();
+            setRunStatus('FAILED');
             setIsRunning(false);
+            setIsCompleted(false);
             setIsFailed(true);
-            setErrorMessage(runStatus.error_message || 'Agent run failed.');
+            setErrorMessage(runStatusRes.error_message || 'Agent run failed.');
+            setActiveRunState('FAILED', 0);
           }
         } catch {
-          // If status fetch fails, keep state as is
+          // Keep current state
         }
       }
     }
-  }, [mapAgentName, processEvent]);
+  }, [mapAgentName, processEvent, setActiveRunState, stopElapsedTimer]);
 
   const startRun = useCallback(async (_force = false) => {
+    setIsLoadingInitial(false);
+    setRunStatus('RUNNING');
     setIsRunning(true);
     setIsCompleted(false);
     setIsFailed(false);
@@ -754,7 +845,8 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
     setLogs([]);
     seenSeqsRef.current.clear();
     lastEventIdRef.current = null;
-    startTimeRef.current = Date.now();
+    startElapsedTimer(0);
+    setActiveRunState('RUNNING', 1);
 
     if (API_CONFIG.USE_MOCKS) {
       const timeouts: Array<ReturnType<typeof setTimeout>> = [];
@@ -768,7 +860,7 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
     }
 
     try {
-      const res = await estateService.startRun(activeCaseId, ['all']);
+      const res = await estateService.startRun(canonicalCaseId, ['all']);
       if (res?.run_id) {
         setLocalRunId(res.run_id);
         setActiveRunId(res.run_id);
@@ -777,21 +869,24 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
       }
     } catch (err: any) {
       console.error('[useAgentRun] startRun failed:', err);
+      stopElapsedTimer();
+      setRunStatus('FAILED');
       setIsRunning(false);
+      setIsCompleted(false);
       setIsFailed(true);
       setErrorMessage(err.message || 'Failed to start agent run.');
+      setActiveRunState('FAILED', 0);
     }
-  }, [activeCaseId, setActiveRunId, streamLiveRun, processEvent]);
+  }, [canonicalCaseId, processEvent, setActiveRunId, setActiveRunState, startElapsedTimer, stopElapsedTimer, streamLiveRun]);
 
   useEffect(() => {
     isMountedRef.current = true;
-    startTimeRef.current = Date.now();
-
-    elapsedTimerRef.current = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
-    }, 500);
 
     async function initializeOrRestore() {
+      if (isInitializingRef.current) return;
+      isInitializingRef.current = true;
+      setIsLoadingInitial(true);
+
       if (API_CONFIG.USE_MOCKS) {
         startRun(false);
         return;
@@ -800,7 +895,7 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
       try {
         let latestRun: any = null;
         try {
-          latestRun = await estateService.getLatestRun(activeCaseId);
+          latestRun = await estateService.getLatestRun(canonicalCaseId);
         } catch {
           // 404 means no run exists for this case yet
         }
@@ -812,42 +907,70 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
           if (latestRun.degraded) setIsDegraded(true);
 
           if (latestRun.status === 'DONE') {
+            stopElapsedTimer();
+            setRunStatus('DONE');
             setIsRunning(false);
             setIsCompleted(true);
+            setIsFailed(false);
             setOverallPercent(100);
-            setAssetsLocated(latestRun.metrics?.assets_located ?? 12);
+            setAssetsLocated(latestRun.metrics?.assets_located ?? defaultTotalAssets);
             setAgents((prev) =>
               prev.map((a) => ({ ...a, status: 'done', progress: 100, activity: 'Completed successfully ✓' }))
             );
+            // Derive duration from run timestamps or metrics
+            if (latestRun.created_at && latestRun.finished_at) {
+              const dur = Math.max(1, Math.round((new Date(latestRun.finished_at).getTime() - new Date(latestRun.created_at).getTime()) / 1000));
+              setElapsedSeconds(dur);
+            } else if (latestRun.metrics?.duration_seconds) {
+              setElapsedSeconds(latestRun.metrics.duration_seconds);
+            } else {
+              setElapsedSeconds(20);
+            }
             populateSynthesizedLogs(latestRun.metrics, !!latestRun.degraded);
-            // Also attempt to replay historical event log via SSE
-            await streamLiveRun(rid, 0);
+            setIsLoadingInitial(false);
+            setSseConnection('closed');
+            setActiveRunState('DONE', 0);
             return;
           }
 
           if (latestRun.status === 'RUNNING' || latestRun.status === 'QUEUED') {
+            setRunStatus(latestRun.status);
             setIsRunning(true);
             setIsCompleted(false);
+            setIsFailed(false);
             setOverallPercent(40);
+            setIsLoadingInitial(false);
+            startElapsedTimer(0);
+            setActiveRunState('RUNNING', 2);
             await streamLiveRun(rid, lastEventIdRef.current || 0);
             return;
           }
 
           if (latestRun.status === 'FAILED') {
+            stopElapsedTimer();
+            setRunStatus('FAILED');
             setIsRunning(false);
+            setIsCompleted(false);
             setIsFailed(true);
             setErrorMessage(latestRun.error_message || 'Agent pipeline execution failed.');
+            setIsLoadingInitial(false);
+            setSseConnection('closed');
+            setActiveRunState('FAILED', 0);
             return;
           }
         }
 
-        // If no prior run found, initiate real run
+        // If no prior run found, initiate real run cleanly
         await startRun(false);
       } catch (err: any) {
         console.error('[useAgentRun] init failed:', err);
+        stopElapsedTimer();
+        setRunStatus('FAILED');
         setIsRunning(false);
         setIsFailed(true);
+        setIsLoadingInitial(false);
         setErrorMessage(err.message || 'Could not initialize agent run.');
+        setActiveRunState('FAILED', 0);
       }
     }
 
@@ -855,20 +978,27 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
 
     return () => {
       isMountedRef.current = false;
-      if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+      stopElapsedTimer();
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
-  }, [activeCaseId]);
+  }, [canonicalCaseId, defaultTotalAssets, populateSynthesizedLogs, setActiveRunId, setActiveRunState, startRun, stopElapsedTimer, streamLiveRun]);
 
   const fastForward = useCallback(() => {
     SCRIPTED_TIMELINE.forEach(({ event }) => processEvent(event));
+    stopElapsedTimer();
     setAgents((prev) => prev.map((a) => ({ ...a, status: 'done', progress: 100, activity: 'Completed successfully ✓' })));
-    setAssetsLocated(12);
+    setAssetsLocated(defaultTotalAssets);
     setOverallPercent(100);
+    setRunStatus('DONE');
     setIsRunning(false);
     setIsCompleted(true);
+    setIsFailed(false);
     setElapsedSeconds(20);
-  }, [processEvent]);
+    setSseConnection('closed');
+    setActiveRunState('DONE', 0);
+  }, [defaultTotalAssets, processEvent, setActiveRunState, stopElapsedTimer]);
+
+  const activeAgentCount = agents.filter((a) => a.status === 'working').length;
 
   return {
     agents,
@@ -876,6 +1006,8 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
     assetsLocated,
     totalAssets,
     overallPercent,
+    runStatus,
+    isLoadingInitial,
     isRunning,
     isCompleted,
     isFailed,
@@ -883,8 +1015,9 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
     errorMessage,
     activeRunId,
     elapsedSeconds,
+    activeAgentCount,
+    sseConnection,
     startRun,
     fastForward,
   };
 }
-

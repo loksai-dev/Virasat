@@ -39,7 +39,8 @@ import { useVirasatStore, CaseScenario } from '@/store/useVirasatStore';
 import { baseCaseData } from '@/mocks/caseData';
 import { useCaseStream } from '@/api/useCaseStream';
 import { estateService } from '@/api/estateService';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { normalizeCaseId } from '@/api/useAgentRun';
 
 export const CaseLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -74,10 +75,27 @@ export const CaseLayout: React.FC = () => {
   }, [paramCaseId, searchParams, caseId, setCaseId, setTourActive]);
 
   const activeCaseId = paramCaseId || caseId || baseCaseData.id;
+  const canonicalCaseId = normalizeCaseId(activeCaseId);
   const basePath = paramCaseId ? `/case/${paramCaseId}` : '/case';
 
+  // Dynamic Case Overview
+  const { data: caseOverview } = useQuery({
+    queryKey: ['caseOverview', canonicalCaseId],
+    queryFn: () => estateService.getOverview(canonicalCaseId),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isMehta = activeCaseId.toUpperCase().includes('MEHTA') || canonicalCaseId.includes('0187');
+  const caseTitle = caseOverview?.caseDetails?.title || 
+    (isMehta ? 'Estate Settlement of Late Anil Mehta' : 'Estate Settlement of Late Ramesh Sharma');
+  const deceasedName = caseOverview?.caseDetails?.deceasedName || 
+    (isMehta ? 'Anil Mehta' : 'Ramesh Sharma');
+  const netValuation = caseOverview?.netEstateValue 
+    ? `₹${caseOverview.netEstateValue}` 
+    : (isMehta ? '₹1.68 Cr' : '₹2.84 Cr');
+
   // Bi-directional case SSE stream
-  const { isStale } = useCaseStream(activeCaseId);
+  const { isStale } = useCaseStream(canonicalCaseId);
 
   // Close profile dropdown on outside click
   useEffect(() => {
@@ -354,7 +372,7 @@ export const CaseLayout: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-sm md:text-base font-semibold text-navy">
-                  {baseCaseData.title}
+                  {caseTitle}
                 </h1>
                 <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-mono font-medium">
                   {activeCaseId}
@@ -366,7 +384,7 @@ export const CaseLayout: React.FC = () => {
                 )}
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Deceased: {baseCaseData.deceased.name} • Net Estate: ₹2.84 Cr
+                Deceased: {deceasedName} • Net Estate: {netValuation}
               </p>
             </div>
           </div>
