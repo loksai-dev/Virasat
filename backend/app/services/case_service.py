@@ -42,12 +42,11 @@ def check_case_access(
     if not case:
         raise NotFound(f"Case {case_id} not found")
 
-    # Seed templates are strictly read-only
-    if case.get("owner_uid") == "SEED" and for_mutation:
-        raise Forbidden("Seed templates are read-only")
-
-    # Cross-user authorization check
-    if case.get("owner_uid") != uid:
+    # Seed templates are strictly read-only for all users
+    if case.get("owner_uid") == "SEED":
+        if for_mutation:
+            raise Forbidden("Seed templates are read-only")
+    elif case.get("owner_uid") != uid:
         if is_entity_lookup:
             raise NotFound(f"Resource not found in case {case_id}")
         raise Forbidden(f"User {uid} does not have access to case {case_id}")

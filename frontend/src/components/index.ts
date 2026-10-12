@@ -16,3 +16,4 @@ export * from './shared/AskVirasatDrawer';
 export * from './shared/ScrollToTop';
 export * from './shared/PageTransition';
 export * from './brand/VirasatLogo';
+export * from './shared/ErrorBoundary';

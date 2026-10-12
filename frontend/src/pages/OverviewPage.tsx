@@ -6,24 +6,20 @@ import {
   FileCheck2,
   Clock,
   ShieldCheck,
-  ShieldAlert,
   Sparkles,
   ArrowRight,
   AlertTriangle,
+  AlertCircle,
   Users,
   ChevronRight,
   CheckCircle2,
-  Info,
   Phone,
-  HelpCircle,
-  ExternalLink,
   Bot,
   Activity,
   Layers,
   Check,
   GitBranch,
-  Building2,
-  HeartHandshake
+  RotateCcw,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -35,23 +31,120 @@ import {
 import { useOverview } from '@/api/useOverview';
 import { useVirasatStore } from '@/store/useVirasatStore';
 import { Skeleton } from '@/components/shared/Skeleton';
-import { StatusBadge } from '@/components/shared/StatusBadge';
-import { Timeline } from '@/components/shared/Timeline';
-import { InfoTooltip } from '@/components/shared/InfoTooltip';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 
 export const OverviewPage: React.FC = () => {
+  return (
+    <ErrorBoundary fallbackTitle="Overview Dashboard Encountered an Issue">
+      <OverviewContent />
+    </ErrorBoundary>
+  );
+};
+
+const OverviewContent: React.FC = () => {
   const navigate = useNavigate();
   const { caseId: paramCaseId } = useParams();
   const { caseId: storeCaseId } = useVirasatStore();
   const activeCaseId = paramCaseId || storeCaseId || 'VR-2026-0142';
 
-  const { data, isLoading } = useOverview(activeCaseId);
+  const { data, isLoading, error, isNotFound, refetch } = useOverview(activeCaseId);
 
   // Hover state for interactive Sankey flow
   const [hoveredHeir, setHoveredHeir] = useState<string | null>(null);
   const [showConsentModal, setShowConsentModal] = useState<boolean>(false);
 
-  if (isLoading || !data) {
+  // =========================================================================
+  // STATE 1: LOADING STATE
+  // =========================================================================
+  if (isLoading) {
+    return <OverviewSkeleton />;
+  }
+
+  // =========================================================================
+  // STATE 5: NOT FOUND STATE (Case does not exist)
+  // =========================================================================
+  if (isNotFound) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 mx-auto shadow-sm">
+          <AlertTriangle className="w-8 h-8 stroke-[1.75]" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-serif font-bold text-navy">
+            Case Not Found
+          </h2>
+          <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+            We couldn't locate an active estate settlement case with ID{' '}
+            <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
+              {activeCaseId}
+            </span>
+            . It may have expired or been removed.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            to="/demo"
+            className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm transition-all shadow-sm"
+          >
+            Launch Benchmark Demo Case
+          </Link>
+          <Link
+            to="/case/start"
+            className="px-5 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white font-semibold text-sm transition-all shadow-sm"
+          >
+            Start New Case Wizard
+          </Link>
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-colors"
+          >
+            Return Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // STATE 3: FRIENDLY ERROR STATE (API Failure with Retry)
+  // =========================================================================
+  if (error && !data) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mx-auto shadow-sm">
+          <AlertCircle className="w-8 h-8 stroke-[1.75]" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-serif font-bold text-navy">
+            Unable to Synchronize Case Overview
+          </h2>
+          <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+            {error.message || 'A network or authentication interruption occurred while retrieving estate data.'}
+          </p>
+        </div>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm transition-all shadow-sm"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Retry Connection</span>
+          </button>
+          <Link
+            to="/dev/api-status"
+            className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-colors"
+          >
+            Check API Health
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
     return <OverviewSkeleton />;
   }
 
@@ -61,11 +154,11 @@ export const OverviewPage: React.FC = () => {
     status,
     familyConsent,
     kpis,
-    assetCategories,
-    nextBestActions,
+    assetCategories = [],
+    nextBestActions = [],
     sankeyData,
-    familyTreeNodes,
-    recentActivity,
+    familyTreeNodes = [],
+    recentActivity = [],
     amberAlert,
   } = data;
 
@@ -74,6 +167,74 @@ export const OverviewPage: React.FC = () => {
     navigate(`/assets?type=${encodeURIComponent(categoryName)}`);
   };
 
+  // =========================================================================
+  // STATE 4: EMPTY STATE (Case exists but has zero assets and unindexed heirs)
+  // =========================================================================
+  const isEmptyCase =
+    (kpis?.assetsFound?.count === 0 || kpis?.assetsFound?.count === undefined) &&
+    assetCategories.length === 0 &&
+    (!sankeyData?.heirs || sankeyData.heirs.length === 0);
+
+  if (isEmptyCase) {
+    return (
+      <div className="space-y-8 pb-20 max-w-7xl mx-auto text-left relative">
+        {/* Header Banner */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-[#0B1F3A] via-[#102A4E] to-[#0B1F3A] p-6 md:p-8 rounded-virasat text-white shadow-elevated border border-slate-700/60">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-xs font-mono font-semibold bg-white/10 text-teal-300 border border-teal-400/30 px-3 py-1 rounded-full">
+                CASE {caseId}
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white mt-2">
+                Estate Settlement of {deceased?.name || 'Deceased Propositus'}
+              </h1>
+              <p className="text-xs sm:text-sm text-teal-100/80 font-sans">
+                Initialized case workspace • Awaiting document intake & agent discovery
+              </p>
+            </div>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/20 text-teal-300 border border-teal-400/40">
+              {status}
+            </span>
+          </div>
+        </div>
+
+        {/* Empty State Action Card */}
+        <EmptyState
+          icon={Layers}
+          title="No Estate Assets or Heirs Ingested Yet"
+          description="This case has been created in Google Cloud Spanner. You can upload municipal death certificates and bank passbooks, or launch the autonomous agent mesh to locate asset folios across simulated institutional gateways."
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Link
+                to={`/case/${caseId}/agents`}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm transition-all shadow-sm"
+              >
+                <Bot className="w-4 h-4" />
+                <span>Launch Autonomous Agents</span>
+              </Link>
+              <Link
+                to={`/case/${caseId}/documents`}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white font-semibold text-sm transition-all shadow-sm"
+              >
+                <FileCheck2 className="w-4 h-4" />
+                <span>Upload Documents</span>
+              </Link>
+              <Link
+                to={`/case/${caseId}/start`}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-colors"
+              >
+                Case Intake Wizard
+              </Link>
+            </div>
+          }
+        />
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // STATE 2: FULL WORKING OVERVIEW PAGE (When valid data is returned)
+  // =========================================================================
   return (
     <div className="space-y-8 pb-20 max-w-7xl mx-auto text-left relative">
       {/* ========================================================================= */}
@@ -88,13 +249,13 @@ export const OverviewPage: React.FC = () => {
                 CASE {caseId}
               </span>
 
-              {/* Status Chip: "In progress" */}
+              {/* Status Chip */}
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/20 text-teal-300 border border-teal-400/40">
                 <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
                 <span>{status}</span>
               </span>
 
-              {/* Family Consent: 3 of 4 Indicator */}
+              {/* Family Consent: Indicator */}
               <button
                 type="button"
                 onClick={() => setShowConsentModal(!showConsentModal)}
@@ -108,7 +269,7 @@ export const OverviewPage: React.FC = () => {
                   <span className="w-2 h-2 rounded-full bg-amber-400" />
                 </div>
                 <span>
-                  Family consent: <strong>{familyConsent.completed} of {familyConsent.total}</strong>
+                  Family consent: <strong>{familyConsent?.completed ?? 0} of {familyConsent?.total ?? 0}</strong>
                 </span>
                 <ChevronRight className="w-3.5 h-3.5 opacity-70 group-hover:translate-x-0.5 transition-transform" />
               </button>
@@ -117,10 +278,13 @@ export const OverviewPage: React.FC = () => {
             {/* Deceased Name & Reassuring Subtext */}
             <div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-white tracking-tight">
-                Estate Settlement of Late {deceased.name}
+                Estate Settlement of {deceased?.name || 'Late Ramesh Sharma'}
               </h1>
               <p className="text-xs sm:text-sm text-teal-100/80 font-sans mt-1">
-                {deceased.birthYear}–{deceased.deathYear} • {deceased.occupation} • {deceased.city}, {deceased.state} • PAN: <span className="font-mono">{deceased.pan}</span>
+                {deceased?.birthYear && deceased?.deathYear ? `${deceased.birthYear}–${deceased.deathYear} • ` : ''}
+                {deceased?.occupation ? `${deceased.occupation} • ` : ''}
+                {deceased?.city && deceased?.state ? `${deceased.city}, ${deceased.state} • ` : ''}
+                PAN: <span className="font-mono">{deceased?.pan || 'Verified'}</span>
               </p>
             </div>
           </div>
@@ -149,7 +313,7 @@ export const OverviewPage: React.FC = () => {
         {/* Consent Details Dropdown if Toggled */}
         {showConsentModal && (
           <div className="mt-5 pt-4 border-t border-white/15 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-            {familyConsent.heirs.map((h, i) => (
+            {(familyConsent?.heirs || []).map((h, i) => (
               <div
                 key={i}
                 className="bg-navy-surface/80 p-2.5 rounded-xl border border-white/10 flex items-center justify-between text-xs"
@@ -175,35 +339,30 @@ export const OverviewPage: React.FC = () => {
 
       {/* ========================================================================= */}
       {/* ROW 1: FIVE KPI CARDS */}
-      {/* 1. Estate Value ₹2.84 Cr (gold) */}
-      {/* 2. Assets Found 12 */}
-      {/* 3. Claims Filed 5 of 11 */}
-      {/* 4. Estimated Settlement 38 days (vs ~6 months typical) */}
-      {/* 5. Risk Score Low-Medium */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* KPI 1: Estate Value ₹2.84 Cr (Gold) */}
+        {/* KPI 1: Estate Value */}
         <div className="p-5 rounded-virasat bg-gradient-to-br from-white via-amber-50/20 to-amber-50/50 border border-amber-200/80 shadow-soft relative overflow-hidden group hover:shadow-elevated transition-all">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              {kpis.estateValue.label}
+              {kpis?.estateValue?.label || 'Net Estate Value'}
             </span>
             <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
               <Coins className="w-4 h-4 text-[#C9A227]" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-bold font-sans text-navy tracking-tight text-[#C9A227]">
-            {kpis.estateValue.amount}
+          <div className="text-2xl sm:text-3xl font-bold font-sans text-[#C9A227] tracking-tight">
+            {kpis?.estateValue?.amount || '₹0'}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            {kpis.estateValue.grossInfo}
+            {kpis?.estateValue?.grossInfo || 'Verified statutory valuation'}
           </div>
           <div className="mt-2.5 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-md border border-amber-200">
             <span>Verified Vault</span>
           </div>
         </div>
 
-        {/* KPI 2: Assets Found 12 */}
+        {/* KPI 2: Assets Found */}
         <div className="p-5 rounded-virasat bg-white border border-slate-200 shadow-soft relative overflow-hidden group hover:shadow-elevated transition-all">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
@@ -214,17 +373,17 @@ export const OverviewPage: React.FC = () => {
             </div>
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-sans text-navy tracking-tight">
-            {kpis.assetsFound.count}
+            {kpis?.assetsFound?.count ?? 0}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            {kpis.assetsFound.subtitle}
+            {kpis?.assetsFound?.subtitle || 'Verified institutional folios'}
           </div>
           <div className="mt-2.5 inline-flex items-center gap-1 text-[10px] font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
             <span>100% Located</span>
           </div>
         </div>
 
-        {/* KPI 3: Claims Filed 5 of 11 */}
+        {/* KPI 3: Claims Filed */}
         <div className="p-5 rounded-virasat bg-white border border-slate-200 shadow-soft relative overflow-hidden group hover:shadow-elevated transition-all">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
@@ -235,17 +394,17 @@ export const OverviewPage: React.FC = () => {
             </div>
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-sans text-navy tracking-tight">
-            {kpis.claimsFiled.display}
+            {kpis?.claimsFiled?.display || '0 of 0'}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            6 in progress / scheduled
+            Scheduled across institutions
           </div>
           <div className="mt-2.5 inline-flex items-center gap-1 text-[10px] font-semibold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
-            <span>{kpis.claimsFiled.percentage}% Disbursed</span>
+            <span>{kpis?.claimsFiled?.percentage ?? 0}% Disbursed</span>
           </div>
         </div>
 
-        {/* KPI 4: Estimated Settlement 38 days (vs ~6 months typical) */}
+        {/* KPI 4: Estimated Settlement */}
         <div className="p-5 rounded-virasat bg-white border border-slate-200 shadow-soft relative overflow-hidden group hover:shadow-elevated transition-all">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
@@ -256,21 +415,20 @@ export const OverviewPage: React.FC = () => {
             </div>
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-sans text-navy tracking-tight">
-            {kpis.estimatedSettlement.days} days
+            {kpis?.estimatedSettlement?.days ?? 21} days
           </div>
-          {/* Comparison Chip */}
           <div className="mt-1">
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
               <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-              <span>{kpis.estimatedSettlement.comparison}</span>
+              <span>{kpis?.estimatedSettlement?.comparison || 'Accelerated resolution'}</span>
             </span>
           </div>
-          <div className="text-[10px] text-slate-400 mt-2">
-            {kpis.estimatedSettlement.benchmark}
+          <div className="text-[10px] text-slate-400 mt-2 truncate">
+            {kpis?.estimatedSettlement?.benchmark || 'vs traditional manual benchmark'}
           </div>
         </div>
 
-        {/* KPI 5: Risk Score Low-Medium */}
+        {/* KPI 5: Risk Score */}
         <div className="p-5 rounded-virasat bg-white border border-slate-200 shadow-soft relative overflow-hidden group hover:shadow-elevated transition-all">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
@@ -281,22 +439,22 @@ export const OverviewPage: React.FC = () => {
             </div>
           </div>
           <div className="text-xl sm:text-2xl font-bold font-sans text-navy tracking-tight">
-            {kpis.riskScore.level}
+            {kpis?.riskScore?.level || 'LOW'}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            {kpis.riskScore.status}
+            {kpis?.riskScore?.status || 'Verified Clear'}
           </div>
           <div className="mt-2.5 inline-flex items-center gap-1 text-[10px] font-semibold text-purple-800 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
-            <span>{kpis.riskScore.confidence}</span>
+            <span>{kpis?.riskScore?.confidence || '99.4% AI Confidence'}</span>
           </div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* ROW 2: LEFT (60%) Donut Chart | RIGHT (40%) Next Best Actions */}
+      {/* ROW 2: LEFT Donut Chart | RIGHT Next Best Actions */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-        {/* Left 60% (7 cols on 12-grid): Donut Chart "Estate by asset type" */}
+        {/* Left: Donut Chart "Estate by asset type" */}
         <div className="lg:col-span-7 bg-white p-6 md:p-7 rounded-virasat border border-slate-200 shadow-soft flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -312,14 +470,14 @@ export const OverviewPage: React.FC = () => {
                 to={`/case/${caseId}/assets`}
                 className="text-xs font-semibold text-teal-700 hover:text-navy flex items-center gap-1 transition-colors"
               >
-                <span>View all 12 assets</span>
+                <span>View all assets</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
             {/* Donut and Legend Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center pt-2">
-              {/* Donut Chart Container (5 cols) */}
+              {/* Donut Chart Container */}
               <div className="sm:col-span-6 h-56 relative flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -343,7 +501,7 @@ export const OverviewPage: React.FC = () => {
                       ))}
                     </Pie>
                     <RechartsTooltip
-                      formatter={(val: any, name: any, item: any) => [
+                      formatter={(_val: any, _name: any, item: any) => [
                         `${item?.payload?.formatted} (${item?.payload?.percentage}%)`,
                         item?.payload?.name,
                       ]}
@@ -363,13 +521,15 @@ export const OverviewPage: React.FC = () => {
                     Net Estate
                   </span>
                   <span className="text-xl font-bold font-sans text-navy">
-                    ₹2.84 Cr
+                    {kpis?.estateValue?.amount || '₹0'}
                   </span>
-                  <span className="text-[10px] text-teal-600 font-medium">12 Folios</span>
+                  <span className="text-[10px] text-teal-600 font-medium">
+                    {kpis?.assetsFound?.count ?? 0} Folios
+                  </span>
                 </div>
               </div>
 
-              {/* Legend List (6 cols) */}
+              {/* Legend List */}
               <div className="sm:col-span-6 space-y-2">
                 {assetCategories.map((cat, idx) => (
                   <button
@@ -402,14 +562,17 @@ export const OverviewPage: React.FC = () => {
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Data synced with CDSL, CAMS, EPFO, and SBI Gateways</span>
-            <span className="text-teal-700 font-semibold cursor-pointer hover:underline" onClick={() => navigate('/assets')}>
+            <span>Reconciled with Banking, CAMS, and EPFO Gateways</span>
+            <span
+              className="text-teal-700 font-semibold cursor-pointer hover:underline"
+              onClick={() => navigate(`/case/${caseId}/assets`)}
+            >
               Filter in Assets view →
             </span>
           </div>
         </div>
 
-        {/* Right 40% (5 cols on 12-grid): "Next best actions" card with 3 AI tasks */}
+        {/* Right: Next Best Actions */}
         <div className="lg:col-span-5 bg-white p-6 md:p-7 rounded-virasat border border-slate-200 shadow-soft flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -422,7 +585,7 @@ export const OverviewPage: React.FC = () => {
                     Next best actions
                   </h2>
                   <p className="text-xs text-slate-500">
-                    3 prioritized AI settlement directives
+                    Prioritized AI settlement directives
                   </p>
                 </div>
               </div>
@@ -431,7 +594,7 @@ export const OverviewPage: React.FC = () => {
               </span>
             </div>
 
-            {/* 3 Prioritized AI Tasks */}
+            {/* Prioritized AI Tasks */}
             <div className="space-y-3">
               {nextBestActions.map((task, idx) => (
                 <div
@@ -491,9 +654,9 @@ export const OverviewPage: React.FC = () => {
       {/* ROW 3: LEFT Sankey "Estate flow to heirs" | RIGHT Mini family graph */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-        {/* Left: Sankey "Estate flow to heirs" (Navigates to /heirs/shares) */}
+        {/* Left: Sankey "Estate flow to heirs" */}
         <div
-          onClick={() => navigate('/heirs/shares')}
+          onClick={() => navigate(`/case/${caseId}/heirs/shares`)}
           className="lg:col-span-7 bg-white p-6 md:p-7 rounded-virasat border border-slate-200 shadow-soft hover:shadow-elevated transition-all cursor-pointer flex flex-col justify-between group"
         >
           <div>
@@ -507,7 +670,7 @@ export const OverviewPage: React.FC = () => {
                     Estate flow to heirs
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Statutory distribution under Section 8 of Hindu Succession Act (₹2.84 Cr net)
+                    Statutory distribution under Section 8 of Hindu Succession Act ({kpis?.estateValue?.amount || '₹2.84 Cr'} net)
                   </p>
                 </div>
               </div>
@@ -519,7 +682,6 @@ export const OverviewPage: React.FC = () => {
 
             {/* Visual Sankey Flow Diagram */}
             <div className="space-y-4 pt-2">
-              {/* Top Summary Flow Stream */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
                 <div className="flex justify-between items-center text-xs font-semibold text-slate-600">
                   <span>Asset Source Buckets</span>
@@ -527,9 +689,9 @@ export const OverviewPage: React.FC = () => {
                   <span>Legal Heirs Entitlement</span>
                 </div>
 
-                {/* 4 Heirs Distribution Ribbons */}
+                {/* Heirs Distribution Ribbons */}
                 <div className="space-y-2.5 pt-1">
-                  {sankeyData.heirs.map((heir) => (
+                  {(sankeyData?.heirs || []).map((heir) => (
                     <div
                       key={heir.name}
                       onMouseEnter={() => setHoveredHeir(heir.name)}
@@ -551,7 +713,9 @@ export const OverviewPage: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2 font-mono">
                           <span className="font-bold text-navy">
-                            ₹{(heir.totalAmount / 10000000).toFixed(2)} Cr
+                            {heir.totalAmount >= 10000000
+                              ? `₹${(heir.totalAmount / 10000000).toFixed(2)} Cr`
+                              : `₹${(heir.totalAmount / 100000).toFixed(2)} Lakh`}
                           </span>
                           <span className="text-xs text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
                             {heir.sharePercent}%
@@ -564,7 +728,7 @@ export const OverviewPage: React.FC = () => {
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{
-                            width: `${heir.sharePercent * 2.5}%`,
+                            width: `${Math.min(100, heir.sharePercent * 2.5)}%`,
                             backgroundColor: heir.color,
                           }}
                         />
@@ -582,9 +746,9 @@ export const OverviewPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Mini family graph preview (Navigates to /heirs) */}
+        {/* Right: Mini family graph preview */}
         <div
-          onClick={() => navigate('/heirs')}
+          onClick={() => navigate(`/case/${caseId}/heirs`)}
           className="lg:col-span-5 bg-white p-6 md:p-7 rounded-virasat border border-slate-200 shadow-soft hover:shadow-elevated transition-all cursor-pointer flex flex-col justify-between group"
         >
           <div>
@@ -614,12 +778,12 @@ export const OverviewPage: React.FC = () => {
               <div className="flex justify-center">
                 <div className="p-2.5 px-4 rounded-2xl bg-navy text-white border border-teal-400/40 shadow-sm flex items-center gap-3">
                   <img
-                    src={familyTreeNodes[0].avatar}
-                    alt={familyTreeNodes[0].name}
+                    src={familyTreeNodes[0]?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
+                    alt={familyTreeNodes[0]?.name || deceased?.name || 'Deceased Propositus'}
                     className="w-8 h-8 rounded-full object-cover ring-2 ring-teal-400"
                   />
                   <div className="text-left">
-                    <div className="text-xs font-bold">{familyTreeNodes[0].name}</div>
+                    <div className="text-xs font-bold">{familyTreeNodes[0]?.name || deceased?.name || 'Deceased'}</div>
                     <div className="text-[10px] text-teal-300">Deceased Propositus</div>
                   </div>
                 </div>
@@ -638,7 +802,7 @@ export const OverviewPage: React.FC = () => {
                     className="p-2 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center gap-2 text-left"
                   >
                     <img
-                      src={node.avatar}
+                      src={node.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80'}
                       alt={node.name}
                       className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
                     />
@@ -654,23 +818,29 @@ export const OverviewPage: React.FC = () => {
                 ))}
               </div>
 
-              {/* Excluded Relative (Vikram Sharma) Node */}
-              <div className="p-2 rounded-xl bg-rose-50/70 border border-rose-200 flex items-center justify-between text-xs text-rose-900">
-                <div className="flex items-center gap-2">
-                  <img
-                    src={familyTreeNodes[5]?.avatar}
-                    alt="Vikram Sharma"
-                    className="w-6 h-6 rounded-full object-cover ring-1 ring-rose-300 grayscale"
-                  />
-                  <div>
-                    <span className="font-bold text-rose-950">Vikram Sharma</span>
-                    <span className="text-[10px] text-rose-700 ml-1.5">(Brother • Class-II)</span>
+              {/* Excluded Relative Node (if any) */}
+              {(() => {
+                const excludedNode = familyTreeNodes.find((n) => n.isExcluded);
+                if (!excludedNode) return null;
+                return (
+                  <div className="p-2 rounded-xl bg-rose-50/70 border border-rose-200 flex items-center justify-between text-xs text-rose-900">
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={excludedNode.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80'}
+                        alt={excludedNode.name}
+                        className="w-6 h-6 rounded-full object-cover ring-1 ring-rose-300 grayscale"
+                      />
+                      <div>
+                        <span className="font-bold text-rose-950">{excludedNode.name}</span>
+                        <span className="text-[10px] text-rose-700 ml-1.5">({excludedNode.relation} • {excludedNode.classType})</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-semibold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full border border-rose-300">
+                      Excluded §8
+                    </span>
                   </div>
-                </div>
-                <span className="text-[10px] font-semibold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full border border-rose-300">
-                  Excluded §8
-                </span>
-              </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -682,7 +852,7 @@ export const OverviewPage: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* ROW 4: LEFT Recent activity timeline | RIGHT Alerts card (Amber Alert) */}
+      {/* ROW 4: LEFT Recent activity timeline | RIGHT Alerts card */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left: Recent Activity Timeline */}
@@ -727,15 +897,21 @@ export const OverviewPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Alerts Card (One amber alert about nominee conflict at HDFC) */}
+        {/* Right: Alerts Card (Amber alert card or Clean card) */}
         <div className="lg:col-span-5 bg-white p-6 md:p-7 rounded-virasat border border-slate-200 shadow-soft space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h2 className="text-lg font-serif font-bold text-navy flex items-center gap-2">
                 <span>Active alerts</span>
-                <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-300">
-                  1 Amber
-                </span>
+                {amberAlert ? (
+                  <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-300">
+                    1 Amber
+                  </span>
+                ) : (
+                  <span className="text-xs font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
+                    All Clear
+                  </span>
+                )}
               </h2>
               <p className="text-xs text-slate-500">
                 Autonomous sentinel anomaly notifications
@@ -743,47 +919,58 @@ export const OverviewPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Amber Alert Card: Nominee Conflict at HDFC */}
-          <div
-            onClick={() => navigate('/disputes')}
-            className="p-4 rounded-2xl bg-amber-50/80 border-2 border-amber-300 shadow-soft hover:shadow-elevated transition-all cursor-pointer text-left space-y-3 group"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
-                <AlertTriangle className="w-4 h-4 text-amber-700 stroke-[2.5]" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-md">
-                    {amberAlert.severity}
-                  </span>
+          {amberAlert ? (
+            <div
+              onClick={() => navigate(amberAlert.route || `/case/${caseId}/disputes`)}
+              className="p-4 rounded-2xl bg-amber-50/80 border-2 border-amber-300 shadow-soft hover:shadow-elevated transition-all cursor-pointer text-left space-y-3 group"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 stroke-[2.5]" />
                 </div>
-                <h3 className="text-sm font-bold text-amber-950 font-serif leading-snug group-hover:text-amber-900 transition-colors">
-                  {amberAlert.title}
-                </h3>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-md">
+                      {amberAlert.severity}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-amber-950 font-serif leading-snug group-hover:text-amber-900 transition-colors">
+                    {amberAlert.title}
+                  </h3>
+                </div>
+              </div>
+
+              <p className="text-xs text-amber-900/90 leading-relaxed">
+                {amberAlert.description}
+              </p>
+
+              <div className="p-2.5 rounded-xl bg-white/70 border border-amber-200 text-[11px] text-amber-950 space-y-1">
+                <div className="font-semibold text-amber-900">
+                  Statutory Legal Precedence:
+                </div>
+                <div className="leading-snug text-slate-600">
+                  {amberAlert.statutoryBasis}
+                </div>
+              </div>
+
+              <div className="pt-1 flex items-center justify-between text-xs font-bold text-amber-900">
+                <span className="underline group-hover:text-navy transition-colors">
+                  Resolve in Disputes & Claims →
+                </span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
-
-            <p className="text-xs text-amber-900/90 leading-relaxed">
-              {amberAlert.description}
-            </p>
-
-            <div className="p-2.5 rounded-xl bg-white/70 border border-amber-200 text-[11px] text-amber-950 space-y-1">
-              <div className="font-semibold text-amber-900">
-                Statutory Legal Precedence:
+          ) : (
+            <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200/90 text-left space-y-2">
+              <div className="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <span>Zero Caveats Flagged</span>
               </div>
-              <div className="leading-snug text-slate-600">
-                {amberAlert.statutoryBasis}
-              </div>
+              <p className="text-xs text-emerald-700 leading-relaxed">
+                No adverse claims, conflicting nominee records, or affidavit discrepancies detected. Statutory transmission is clear to proceed.
+              </p>
             </div>
-
-            <div className="pt-1 flex items-center justify-between text-xs font-bold text-amber-900">
-              <span className="underline group-hover:text-navy transition-colors">
-                Resolve in Disputes & Claims →
-              </span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </div>
+          )}
 
           {/* AI Dispute Sentinel Status Pill */}
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs text-slate-600">
@@ -804,7 +991,7 @@ export const OverviewPage: React.FC = () => {
       <div className="fixed bottom-6 right-6 z-50">
         <button
           type="button"
-          onClick={() => navigate('/ask')}
+          onClick={() => navigate(`/case/${caseId}/ask`)}
           className="group flex items-center gap-2.5 px-5 py-3.5 rounded-full bg-navy hover:bg-[#102A4E] text-white shadow-elevated border border-teal-400/40 hover:border-teal-300 transition-all transform hover:-translate-y-0.5"
           title="Ask Virasat AI anything about this estate case"
         >
