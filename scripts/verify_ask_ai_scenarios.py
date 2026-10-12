@@ -42,14 +42,18 @@ def test_ask_ai_scenarios():
 
         # Verify Citation Pills / Modal
         print(f"\n=== Scenario 3: Citation Pill Interaction ===")
-        citation_btn = page.locator("button:has-text('§')").first
+        citation_btn = page.locator("div.space-y-1 button:has-text('§')").first
+        if not citation_btn.is_visible():
+            citation_btn = page.locator("div.space-y-3 div:has-text('Inspect Full Excerpt')").first
+        
         if citation_btn.is_visible():
             print("Found citation pill. Clicking to open Dossier Modal...")
             citation_btn.click()
             page.wait_for_timeout(1000)
-            modal = page.locator("h3:has-text('STATUTORY PROVISION DOSSIER'), h3:has-text('Statutory Authority')").first
-            print("Modal visible?", page.locator("button:has-text('Close Dossier')").is_visible())
-            page.locator("button:has-text('Close Dossier')").click()
+            close_btn = page.locator("button:has-text('Close Dossier')")
+            assert close_btn.is_visible(), "Close Dossier button not visible in modal"
+            print("Modal visible? True")
+            close_btn.click()
             page.wait_for_timeout(500)
             print("[PASS] Citation Dossier modal opened and closed cleanly.")
 
