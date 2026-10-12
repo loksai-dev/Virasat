@@ -1,0 +1,119 @@
+1
+00:00:00,500 --> 00:00:05,200
+When a loved one passes away, families face months of fragmented paperwork,
+
+2
+00:00:05,400 --> 00:00:09,800
+uncataloged bank accounts, and opaque succession rules.
+
+3
+00:00:10,200 --> 00:00:15,000
+In India alone, over 1.8 lakh crore rupees sit unclaimed
+
+4
+00:00:15,200 --> 00:00:19,800
+because navigating death certificates, legal heirs, and claims is overwhelming.
+
+5
+00:00:20,500 --> 00:00:27,500
+Virasat is India's first autonomous estate settlement mesh.
+
+6
+00:00:27,800 --> 00:00:34,800
+It discovers every asset, calculates legal shares deterministically, and prepares claim packets in minutes.
+
+7
+00:00:35,500 --> 00:00:42,500
+Let's enter the live platform as a Judge reviewing the estate of Late Ramesh Sharma,
+
+8
+00:00:42,800 --> 00:00:49,500
+starting directly from raw unindexed documents.
+
+9
+00:00:50,500 --> 00:00:57,500
+A multi-agent mesh ingests municipal death certificates, queries simulated gateways,
+
+10
+00:00:57,800 --> 00:01:04,500
+and constructs the property graph—streaming cited events with bi-temporal hashes.
+
+11
+00:01:05,500 --> 00:01:11,500
+In under twenty seconds, Virasat locates twelve distinct assets
+
+12
+00:01:11,800 --> 00:01:17,800
+totaling 2.84 crore rupees with complete institutional reconciliation.
+
+13
+00:01:18,500 --> 00:01:23,500
+The bi-temporal kinship engine exposes what was true in the real world
+
+14
+00:01:23,800 --> 00:01:27,800
+versus what institutions recorded—surfacing a historic HDFC nominee discrepancy.
+
+15
+00:01:28,500 --> 00:01:32,500
+Legal shares are calculated using a zero-LLM deterministic rules engine
+
+16
+00:01:32,800 --> 00:01:35,800
+under Section 8 of the Hindu Succession Act, citing exact clauses.
+
+17
+00:01:36,500 --> 00:01:39,800
+Claims Packager generates compliant packets tailored to SBI, IRDAI, and EPFO standards,
+
+18
+00:01:40,000 --> 00:01:42,800
+complete with indemnity bonds and statutory notices.
+
+19
+00:01:43,500 --> 00:01:46,800
+Dispute Guard intercepts conflicting Class-II caveats,
+
+20
+00:01:47,000 --> 00:01:49,800
+while multilingual voice assistance guides heirs in Hindi and Telugu.
+
+21
+00:01:50,500 --> 00:01:56,500
+Under the hood, Virasat is built on Google Cloud.
+
+22
+00:01:56,800 --> 00:02:02,500
+Cloud Spanner houses relational tables and the bi-temporal property graph.
+
+23
+00:02:02,800 --> 00:02:07,800
+Vertex AI Gemini 2.5 Flash powers multimodal parsing, while Gemini 2.5 Pro drives legal reasoning.
+
+24
+00:02:08,500 --> 00:02:14,000
+Crucially, legal shares never use LLM math. A deterministic engine computes shares,
+
+25
+00:02:14,200 --> 00:02:19,500
+every explanation cites statutory clauses verified against Spanner,
+
+26
+00:02:19,800 --> 00:02:24,500
+and all mutations are sealed in a hash-chained audit log.
+
+27
+00:02:25,500 --> 00:02:31,500
+In empirical evaluations across thirty golden legal benchmarks, Virasat achieved 100% share accuracy,
+
+28
+00:02:31,800 --> 00:02:37,800
+100% defect recall, and an end-to-end execution cost of just 1.5 cents per estate.
+
+29
+00:02:38,500 --> 00:02:44,500
+Virasat empowers families and financial institutions to settle estates with transparency, dignity, and care.
+
+30
+00:02:44,800 --> 00:02:49,500
+Experience the live platform today at virasat-511210.web.app.

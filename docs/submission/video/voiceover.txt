@@ -1,0 +1,146 @@
+================================================================================
+VIRASAT — AI BUILDER CUP DEMO VIDEO: TELEPROMPTER VOICEOVER SCRIPT
+================================================================================
+Target Duration: 02:48 (168 seconds) | Target Speed: ~133 wpm
+Tone: Warm, empathetic, authoritative, enterprise-grade
+Pronunciation Guides:
+  • Virasat:       vee-RAA-sut
+  • Ramesh:        ruh-MAYSH
+  • Sunita:        soo-NEE-tah
+  • Arjun:         UHR-joon
+  • Priya:         PREE-yah
+  • Vikram:        VIK-rum
+  • Lakh:          LAHK
+  • Crore:         CROR
+  • Spanner:       SPAN-er
+  • Gemini:        JEM-in-eye
+
+NOTE FOR RECORDING:
+  • Record at 48kHz or 44.1kHz WAV, mono or stereo.
+  • Save your final recording as:
+    docs/submission/video/my_voice.wav
+  • The assembly pipeline automatically detects `my_voice.wav` and will use it
+    in place of the generated TTS track.
+
+--------------------------------------------------------------------------------
+[00:00 - 00:10] PROBLEM STATEMENT: HUMAN IMPACT
+--------------------------------------------------------------------------------
+
+When a loved one passes away,
+families face months of fragmented paperwork,
+uncataloged bank accounts,
+and opaque succession rules.
+
+--------------------------------------------------------------------------------
+[00:10 - 00:20] THE SYSTEMIC CRISIS
+--------------------------------------------------------------------------------
+
+In India alone,
+over one point eight lakh crore rupees sit unclaimed
+because navigating death certificates, legal heirs,
+and claims across dozens of institutions is overwhelming.
+
+--------------------------------------------------------------------------------
+[00:20 - 00:35] SOLUTION INTRODUCTION & TAGLINE
+--------------------------------------------------------------------------------
+
+Virasat is India's first autonomous estate settlement mesh.
+It discovers every asset,
+calculates legal shares deterministically,
+and prepares institution-ready claim packets in minutes.
+
+--------------------------------------------------------------------------------
+[00:35 - 00:50] ENTERING LIVE DEMO AS JUDGE
+--------------------------------------------------------------------------------
+
+Let's enter the live platform as a Judge
+reviewing the estate of Late Ramesh Sharma,
+starting directly from raw unindexed documents.
+
+--------------------------------------------------------------------------------
+[00:50 - 01:05] MULTI-AGENT DISCOVERY MESH
+--------------------------------------------------------------------------------
+
+A multi-agent mesh ingests municipal death certificates,
+queries simulated gateways,
+and constructs the property graph—
+streaming cited events with bi-temporal hashes.
+
+--------------------------------------------------------------------------------
+[01:05 - 01:18] SETTLEMENT OVERVIEW DASHBOARD
+--------------------------------------------------------------------------------
+
+In under twenty seconds,
+Virasat locates twelve distinct assets
+totaling two point eight four crore rupees
+with complete institutional reconciliation.
+
+--------------------------------------------------------------------------------
+[01:18 - 01:28] BI-TEMPORAL KINSHIP GRAPH & TIME TRAVEL
+--------------------------------------------------------------------------------
+
+The bi-temporal kinship engine exposes what was true in the real world
+versus what institutions recorded—
+surfacing a historic HDFC nominee discrepancy before probate.
+
+--------------------------------------------------------------------------------
+[01:28 - 01:36] DETERMINISTIC LEGAL SHARES & CITATIONS
+--------------------------------------------------------------------------------
+
+Legal shares are calculated using a zero-LLM deterministic rules engine
+under Section 8 of the Hindu Succession Act,
+citing exact clauses.
+
+--------------------------------------------------------------------------------
+[01:36 - 01:43] INSTITUTIONAL CLAIMS PACKAGING
+--------------------------------------------------------------------------------
+
+Claims Packager generates compliant packets tailored to
+SBI, IRDAI, and EPFO standards,
+complete with indemnity bonds and statutory notices.
+
+--------------------------------------------------------------------------------
+[01:43 - 01:50] DISPUTE GUARD & MULTILINGUAL ASSISTANCE
+--------------------------------------------------------------------------------
+
+Dispute Guard intercepts conflicting Class-II caveats,
+while multilingual voice assistance guides heirs in Hindi and Telugu.
+
+--------------------------------------------------------------------------------
+[01:50 - 02:08] UNDER THE HOOD: GOOGLE CLOUD ARCHITECTURE
+--------------------------------------------------------------------------------
+
+Under the hood, Virasat is built on Google Cloud.
+Cloud Spanner houses relational tables and the bi-temporal property graph.
+Vertex AI Gemini 2.5 Flash powers rapid multimodal parsing,
+while Gemini 2.5 Pro drives legal reasoning and citation verification.
+
+--------------------------------------------------------------------------------
+[02:08 - 02:25] ENTERPRISE GUARDRAILS: ZERO LLM MATH
+--------------------------------------------------------------------------------
+
+Crucially, legal shares never use LLM math.
+A deterministic engine computes shares,
+every explanation cites statutory clauses verified against Spanner,
+and all mutations are sealed in a hash-chained audit log.
+
+--------------------------------------------------------------------------------
+[02:25 - 02:38] EMPIRICAL PROOF & BENCHMARKS
+--------------------------------------------------------------------------------
+
+In empirical evaluations across thirty golden legal benchmarks,
+Virasat achieved one hundred percent share accuracy,
+one hundred percent fraud detection recall,
+and an end-to-end execution cost of just one point five cents per estate.
+
+--------------------------------------------------------------------------------
+[02:38 - 02:50] CLOSING & CALL TO ACTION
+--------------------------------------------------------------------------------
+
+Virasat empowers families and financial institutions
+to settle estates with transparency, dignity, and care.
+Experience the live platform today at virasat-511210.web.app.
+
+================================================================================
+END OF SCRIPT — TOTAL SPOKEN DURATION: 168s (02:48) | WORD COUNT: 372
+================================================================================
