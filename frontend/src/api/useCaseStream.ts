@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { API_CONFIG } from './config';
 import { getFirebaseIdToken } from '@/lib/firebase';
 import { useVirasatStore } from '@/store/useVirasatStore';
+import { normalizeCaseId } from './useAgentRun';
 
 export function useCaseStream(caseId?: string) {
   const queryClient = useQueryClient();
@@ -51,7 +52,8 @@ export function useCaseStream(caseId?: string) {
       try {
         const token = await getFirebaseIdToken();
         const base = API_CONFIG.BASE_URL.replace(/\/+$/, '');
-        const url = `${base}/cases/${encodeURIComponent(caseId!)}/events`;
+        const canonicalId = normalizeCaseId(caseId);
+        const url = `${base}/cases/${encodeURIComponent(canonicalId)}/events`;
 
         const headers: Record<string, string> = {
           Accept: 'text/event-stream',

@@ -1,3 +1,4 @@
+import { normalizeCaseId } from './useAgentRun';
 /**
  * Virasat Estate Service
  * 
@@ -22,7 +23,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData('complex').caseDetails;
     }
-    return api.get(`/cases/${caseId}`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}`);
   },
 
   async getOverview(caseId: string) {
@@ -30,7 +31,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData('complex');
     }
-    return api.get(`/cases/${caseId}/overview`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/overview`);
   },
 
   async resetCase(caseId: string) {
@@ -38,7 +39,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return { case_id: caseId, status: 'reset' };
     }
-    return api.post(`/cases/${caseId}/reset`);
+    return api.post(`/cases/${normalizeCaseId(caseId)}/reset`);
   },
 
   // --------------------------------------------------------------------------
@@ -49,7 +50,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).assets;
     }
-    return api.get(`/cases/${caseId}/assets`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/assets`);
   },
 
   async createAsset(caseId: string, data: any) {
@@ -57,7 +58,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return { ...data, asset_id: `asset-${Date.now()}` };
     }
-    return api.post(`/cases/${caseId}/assets`, data);
+    return api.post(`/cases/${normalizeCaseId(caseId)}/assets`, data);
   },
 
   async updateAsset(assetId: string, updates: any) {
@@ -92,7 +93,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).people;
     }
-    return api.get(`/cases/${caseId}/people`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/people`);
   },
 
   async createPerson(caseId: string, data: any) {
@@ -100,7 +101,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return { ...data, person_id: `p-${Date.now()}` };
     }
-    return api.post(`/cases/${caseId}/people`, data);
+    return api.post(`/cases/${normalizeCaseId(caseId)}/people`, data);
   },
 
   async updatePerson(personId: string, updates: any) {
@@ -124,7 +125,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return { ...data, rel_id: `rel-${Date.now()}` };
     }
-    return api.post(`/cases/${caseId}/relationships`, data);
+    return api.post(`/cases/${normalizeCaseId(caseId)}/relationships`, data);
   },
 
   async deleteRelationship(relId: string) {
@@ -147,7 +148,7 @@ export const estateService = {
     if (validAt) params.set('valid_at', validAt);
     if (knownAt) params.set('known_at', knownAt);
     const qs = params.toString();
-    return api.get(`/cases/${caseId}/graph${qs ? `?${qs}` : ''}`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/graph${qs ? `?${qs}` : ''}`);
   },
 
   // --------------------------------------------------------------------------
@@ -158,7 +159,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return (getMockData('complex') as any).shares || [];
     }
-    return api.get(`/cases/${caseId}/shares?scenario=${scenario}`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/shares?scenario=${scenario}`);
   },
 
   async getWill(caseId: string) {
@@ -166,7 +167,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return (getMockData('complex') as any).willDetails || {};
     }
-    return api.get(`/cases/${caseId}/will`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/will`);
   },
 
   async updateWill(caseId: string, willData: any) {
@@ -174,7 +175,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return willData;
     }
-    return api.put(`/cases/${caseId}/will`, willData);
+    return api.put(`/cases/${normalizeCaseId(caseId)}/will`, willData);
   },
 
   async runWhatIf(caseId: string, payload: any) {
@@ -182,7 +183,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return { ...payload, simulation_id: 'whatif-sim-1' };
     }
-    return api.post(`/cases/${caseId}/whatif`, payload);
+    return api.post(`/cases/${normalizeCaseId(caseId)}/whatif`, payload);
   },
 
   // --------------------------------------------------------------------------
@@ -193,7 +194,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).claims;
     }
-    return api.get(`/cases/${caseId}/claims`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/claims`);
   },
 
   async getClaimPacket(claimId: string) {
@@ -228,7 +229,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).disputes;
     }
-    return api.get(`/cases/${caseId}/disputes`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/disputes`);
   },
 
   async resolveDispute(disputeId: string, resolution: any) {
@@ -247,7 +248,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).documents;
     }
-    return api.get(`/cases/${caseId}/documents`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/documents`);
   },
 
   async uploadDocument(caseId: string, file: File, docType: string = 'OTHER') {
@@ -258,7 +259,7 @@ export const estateService = {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('doc_type', docType);
-    return api.post(`/cases/${caseId}/documents`, formData);
+    return api.post(`/cases/${normalizeCaseId(caseId)}/documents`, formData);
   },
 
   async updateDocument(docId: string, updates: any) {
@@ -285,7 +286,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return getMockData(scenario).auditTrail;
     }
-    return api.get(`/cases/${caseId}/audit`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/audit`);
   },
 
   async verifyAuditTrail(caseId: string) {
@@ -293,7 +294,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return { verified: true, chain_length: 24, head_hash: 'a7f9c2...b31e' };
     }
-    return api.get(`/cases/${caseId}/audit/verify`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/audit/verify`);
   },
 
   // --------------------------------------------------------------------------
@@ -304,7 +305,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return (getMockData('complex') as any).consentSummary || {};
     }
-    return api.get(`/cases/${caseId}/consent`);
+    return api.get(`/cases/${normalizeCaseId(caseId)}/consent`);
   },
 
   async updateConsent(caseId: string, personId: string, status: 'GIVEN' | 'REVOKED' | 'PENDING') {
@@ -312,7 +313,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return { case_id: caseId, person_id: personId, status };
     }
-    return api.put(`/cases/${caseId}/consent`, { person_id: personId, status });
+    return api.put(`/cases/${normalizeCaseId(caseId)}/consent`, { person_id: personId, status });
   },
 
   // --------------------------------------------------------------------------
@@ -376,7 +377,7 @@ export const estateService = {
       await delay(API_CONFIG.SIMULATED_DELAY_MS);
       return { run_id: `run-${caseId}-${Date.now()}`, status: 'RUNNING', degraded: false };
     }
-    return api.post<{ run_id: string; status: string; degraded: boolean }>(`/cases/${caseId}/run`, { stages });
+    return api.post<{ run_id: string; status: string; degraded: boolean }>(`/cases/${normalizeCaseId(caseId)}/run`, { stages });
   },
 
   async getLatestRun(caseId: string) {
@@ -393,7 +394,7 @@ export const estateService = {
       error_message?: string;
       degraded?: boolean;
       metrics?: Record<string, any>;
-    }>(`/cases/${caseId}/runs/latest`);
+    }>(`/cases/${normalizeCaseId(caseId)}/runs/latest`);
   },
 
   async getRun(runId: string): Promise<{
