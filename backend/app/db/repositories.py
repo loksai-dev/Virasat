@@ -61,14 +61,31 @@ def resolve_case_alias(case_id: str) -> str:
 class CasesRepo:
     @staticmethod
     def get(case_id: str) -> dict[str, Any] | None:
-        case_id = resolve_case_alias(case_id)
         def _get(snap: Snapshot):
+            # 1. Exact primary key match
             sql = """
             SELECT case_id, owner_uid, seed_key, mode, title, status,
                    deceased_person_id, data_version, created_at, expires_at
             FROM Cases WHERE case_id = @case_id
             """
             rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
+            if rows:
+                keys = ["case_id", "owner_uid", "seed_key", "mode", "title", "status",
+                        "deceased_person_id", "data_version", "created_at", "expires_at"]
+                return dict(zip(keys, rows[0], strict=False))
+
+            # 2. Fallback: match by alias, title or seed_key
+            resolved = resolve_case_alias(case_id)
+            seed_key = "seed-mehta" if resolved in ("VR-2026-0187", "MEHTA") else "seed-sharma" if resolved in ("VR-2026-0142", "SHARMA") else resolved
+            sql_fallback = """
+            SELECT case_id, owner_uid, seed_key, mode, title, status,
+                   deceased_person_id, data_version, created_at, expires_at
+            FROM Cases
+            WHERE case_id = @resolved OR title = @case_id OR title = @resolved OR case_id = @seed_key
+            ORDER BY (CASE WHEN owner_uid != 'SEED' THEN 1 ELSE 0 END) DESC, created_at DESC
+            LIMIT 1
+            """
+            rows = list(snap.execute_sql(sql_fallback, params={"resolved": resolved, "case_id": case_id, "seed_key": seed_key}, param_types={"resolved": spanner.param_types.STRING, "case_id": spanner.param_types.STRING, "seed_key": spanner.param_types.STRING}))
             if not rows:
                 return None
             keys = ["case_id", "owner_uid", "seed_key", "mode", "title", "status",
@@ -1847,7 +1864,6 @@ class AgentRunRepo:
 
     @staticmethod
     def get_active_by_case(case_id: str) -> dict[str, Any] | None:
-        case_id = resolve_case_alias(case_id)
         def _get(snap: Snapshot):
             sql = """
             SELECT run_id, case_id, trigger_kind, status, degraded, rerun_pending, case_version, started_at, finished_at, metrics
@@ -1869,7 +1885,7 @@ class AgentRunRepo:
 
     @staticmethod
     def get_latest_by_case(case_id: str) -> dict[str, Any] | None:
-        case_id = resolve_case_alias(case_id)
+        is_alias = case_id.strip().upper() in ("VR-2026-MEHTA", "MEHTA", "VR-2026-0187", "VR-2026-SHARMA", "SHARMA", "VR-2026-0142")
         def _get(snap: Snapshot):
             sql = """
             SELECT run_id, case_id, trigger_kind, status, degraded, rerun_pending, case_version, started_at, finished_at, metrics
@@ -1877,6 +1893,16 @@ class AgentRunRepo:
             ORDER BY started_at DESC LIMIT 1
             """
             rows = list(snap.execute_sql(sql, params={"case_id": case_id}, param_types={"case_id": spanner.param_types.STRING}))
+            if not rows and is_alias:
+                resolved_title = "VR-2026-0187" if "MEHTA" in case_id.upper() or "0187" in case_id else "VR-2026-0142"
+                sql_title = """
+                SELECT r.run_id, r.case_id, r.trigger_kind, r.status, r.degraded, r.rerun_pending, r.case_version, r.started_at, r.finished_at, r.metrics
+                FROM AgentRun r
+                JOIN Cases c ON r.case_id = c.case_id
+                WHERE c.title = @title
+                ORDER BY r.started_at DESC LIMIT 1
+                """
+                rows = list(snap.execute_sql(sql_title, params={"title": resolved_title}, param_types={"title": spanner.param_types.STRING}))
             if not rows:
                 return None
             keys = ["run_id", "case_id", "trigger_kind", "status", "degraded", "rerun_pending", "case_version", "started_at", "finished_at", "metrics"]

@@ -981,7 +981,7 @@ export function useAgentRun(caseIdProp?: string, runIdProp?: string) {
       stopElapsedTimer();
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
-  }, [canonicalCaseId, defaultTotalAssets, populateSynthesizedLogs, setActiveRunId, setActiveRunState, startRun, stopElapsedTimer, streamLiveRun]);
+  }, [canonicalCaseId, defaultTotalAssets, populateSynthesizedLogs, setActiveRunId, setActiveRunState, startElapsedTimer, startRun, stopElapsedTimer, streamLiveRun]);
 
   const fastForward = useCallback(() => {
     SCRIPTED_TIMELINE.forEach(({ event }) => processEvent(event));

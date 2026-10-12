@@ -62,6 +62,15 @@ class RunManager:
                 detail="System is currently at maximum pipeline capacity. Please retry shortly.",
             )
 
+        # 2. One active run per UID check
+        if owner_uid and owner_uid != "system":
+            for cid, task in list(self._active_tasks.items()):
+                if not task.done() and self._active_uids.get(cid) == owner_uid:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="Only one active pipeline run is permitted per user. Please wait for current run to finish.",
+                    )
+
         # Check for currently active run on this case
         active_run = AgentRunRepo.get_active_by_case(case_id)
         if active_run:
@@ -71,15 +80,6 @@ class RunManager:
             from app.services.events import publish_case_event
             publish_case_event(case_id, "case_stale", {"case_id": case_id, "run_id": active_run["run_id"], "stale": True})
             return active_run, False
-
-        # 2. One active run per UID check (across different cases)
-        if owner_uid and owner_uid != "system":
-            for cid, task in list(self._active_tasks.items()):
-                if cid != case_id and not task.done() and self._active_uids.get(cid) == owner_uid:
-                    raise HTTPException(
-                        status_code=429,
-                        detail="Only one active pipeline run is permitted per user. Please wait for current run to finish.",
-                    )
 
         # Create new AgentRun
         case_version = case.get("data_version", 1)
