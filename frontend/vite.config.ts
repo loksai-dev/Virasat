@@ -10,6 +10,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    host: true,
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'https://virasat-api-275851497852.asia-south1.run.app',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
   build: {
     chunkSizeWarningLimit: 800,
     rollupOptions: {

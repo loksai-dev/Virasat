@@ -164,9 +164,15 @@ export function useOverview(caseIdParam?: string) {
   const [error, setError] = useState<Error | null>(null);
   const [isNotFound, setIsNotFound] = useState<boolean>(false);
   const [reloadCount, setReloadCount] = useState<number>(0);
+  const [forceFallback, setForceFallback] = useState<boolean>(false);
 
   const refetch = useCallback(() => {
+    setForceFallback(false);
     setReloadCount((c) => c + 1);
+  }, []);
+
+  const loadOfflineFallback = useCallback(() => {
+    setForceFallback(true);
   }, []);
 
   useEffect(() => {
@@ -178,7 +184,7 @@ export function useOverview(caseIdParam?: string) {
     async function loadData() {
       const activeId = caseIdParam || baseCaseData.id;
 
-      if (!API_CONFIG.USE_MOCKS) {
+      if (!API_CONFIG.USE_MOCKS && !forceFallback) {
         try {
           const res = await estateService.getOverview(activeId);
           let people: any[] = [];
@@ -581,7 +587,7 @@ export function useOverview(caseIdParam?: string) {
     };
   }, [caseIdParam, reloadCount]);
 
-  return { data, isLoading, error, isNotFound, refetch };
+  return { data, isLoading, error, isNotFound, refetch, loadOfflineFallback };
 }
 
 export default useOverview;

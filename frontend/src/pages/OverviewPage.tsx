@@ -48,7 +48,7 @@ const OverviewContent: React.FC = () => {
   const { caseId: storeCaseId } = useVirasatStore();
   const activeCaseId = paramCaseId || storeCaseId || 'VR-2026-0142';
 
-  const { data, isLoading, error, isNotFound, refetch } = useOverview(activeCaseId);
+  const { data, isLoading, error, isNotFound, refetch, loadOfflineFallback } = useOverview(activeCaseId);
 
   // Hover state for interactive Sankey flow
   const [hoveredHeir, setHoveredHeir] = useState<string | null>(null);
@@ -108,7 +108,7 @@ const OverviewContent: React.FC = () => {
   }
 
   // =========================================================================
-  // STATE 3: FRIENDLY ERROR STATE (API Failure with Retry)
+  // STATE 3: FRIENDLY ERROR STATE (API Failure with Retry & Offline Fallback)
   // =========================================================================
   if (error && !data) {
     return (
@@ -124,7 +124,7 @@ const OverviewContent: React.FC = () => {
             {error.message || 'A network or authentication interruption occurred while retrieving estate data.'}
           </p>
         </div>
-        <div className="flex items-center justify-center gap-3 pt-2">
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <button
             type="button"
             onClick={() => refetch()}
@@ -132,6 +132,13 @@ const OverviewContent: React.FC = () => {
           >
             <RotateCcw className="w-4 h-4" />
             <span>Retry Connection</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => loadOfflineFallback()}
+            className="px-4 py-2.5 rounded-xl border border-teal-600 text-teal-700 hover:bg-teal-50 font-semibold text-sm transition-colors"
+          >
+            Load Offline Benchmark Data
           </button>
           <Link
             to="/dev/api-status"
