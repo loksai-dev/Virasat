@@ -20,11 +20,11 @@
 ### Backend API (Google Cloud Run)
 - **Service Name:** `virasat-api`
 - **Region:** `asia-south1` (Mumbai, India)
-- **Active Revision:** `virasat-api-00040-zdt`
+- **Active Revision:** `virasat-api-00008-rvj` (100% traffic serving)
 - **Service URL:** `https://virasat-api-275851497852.asia-south1.run.app`
-- **Image Digest:** `asia-south1-docker.pkg.dev/virasat-511210/cloud-run-source-deploy/virasat-api@sha256:b4de8e22211127899d6b3b6d2122aaac49a7b40181e8a9a95925e3c4b4410e66`
+- **Deployed Version:** `1.0.1` (Commit: `9cc9c66`)
 - **Runtime Configuration:**
-  - Minimum instances: `1` (warm instance active, cold start <350ms)
+  - Minimum instances: `1` (warm instance active, cold-ish request <320ms)
   - Maximum instances: `100` (autoscaling)
   - Memory: `2GiB` | CPU: `2 vCPU`
   - Startup CPU Boost: `Enabled`
@@ -94,18 +94,18 @@ In this mode, all 30 golden succession cases, statutory calculations, and claims
 ## 3. Rollback Points and Procedure
 
 ### A. Cloud Run Rollback Point
-- **Active Serving Revision (Part 0):** `virasat-api-00007-s8f` (100% traffic)
-- **Known-Good Prior Revision:** `virasat-api-00006-xtw`
+- **Active Serving Revision:** `virasat-api-00008-rvj` (100% traffic, deployed Part 5)
+- **Known-Good Prior Revision:** `virasat-api-00007-s8f` (or `virasat-api-00006-xtw`)
 - **Instant Rollback Command:**
   ```bash
   gcloud run services update-traffic virasat-api \
     --region=asia-south1 \
     --project=virasat-511210 \
-    --to-revisions=virasat-api-00006-xtw=100
+    --to-revisions=virasat-api-00007-s8f=100
   ```
 
 ### B. Firebase Hosting Rollback Point
-- **Active Hosting Channel:** `live`
+- **Active Hosting Channel:** `live` (Released: `2026-10-17 19:11:59 UTC`)
 - **Pre-sprint Release Timestamp:** `2026-10-17 08:49:49 UTC`
 - **Rollback Procedure:** In Firebase Console > Hosting > Release History, select the release timestamped `2026-10-17 08:49:49` and click "Rollback", or redeploy using `firebase-tools hosting:clone`.
 
@@ -115,5 +115,5 @@ Confirmed: The audit bug fixes:
 2. `backend/app/services/runs.py` (`rerun_pending` active run state tracking)
 3. `backend/app/services/change_propagation.py` (proper mutation propagation)
 
-Are all committed (commits `b5f40fc` and `09b5336`) and deployed in Cloud Run revision `virasat-api-00007-s8f`.
+Are all committed and active in production Cloud Run revision `virasat-api-00008-rvj` (and prior `00007-s8f`).
 

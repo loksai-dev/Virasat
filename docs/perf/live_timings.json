@@ -1,0 +1,20 @@
+{
+  "health_check_ms": 313.86,
+  "health_response": {
+    "status": "ok",
+    "version": "1.0.1",
+    "commit": "379d382"
+  },
+  "sharma_run": {
+    "case_id": "7c94668e-fa27-42f4-9cbc-5489b1e5e12f",
+    "run_id": "79b59951-06ea-4068-a9b3-a9df0e69e2e4",
+    "duration_sec": 36.34,
+    "status": "DONE"
+  },
+  "mehta_run": {
+    "case_id": "c195721a-f6c1-40a4-98a7-c4659fec650c",
+    "run_id": "bc1cd338-b40c-43ed-8f42-9407de7bd700",
+    "duration_sec": 25.09,
+    "status": "DONE"
+  }
+}

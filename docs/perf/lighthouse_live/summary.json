@@ -1,0 +1,80 @@
+[
+  {
+    "url": "https://virasat-511210.web.app/",
+    "mode": "mobile",
+    "perf": 62,
+    "a11y": 95,
+    "best_practices": 100,
+    "seo": 92,
+    "fcp": "5.2\u00a0s",
+    "lcp": "6.9\u00a0s",
+    "tbt": "20\u00a0ms",
+    "cls": "0",
+    "json_file": "docs\\perf\\lighthouse_live\\landing.mobile.report.json"
+  },
+  {
+    "url": "https://virasat-511210.web.app/",
+    "mode": "desktop",
+    "perf": 97,
+    "a11y": 95,
+    "best_practices": 100,
+    "seo": 92,
+    "fcp": "0.6\u00a0s",
+    "lcp": "1.2\u00a0s",
+    "tbt": "40\u00a0ms",
+    "cls": "0.001",
+    "json_file": "docs\\perf\\lighthouse_live\\landing.desktop.report.json"
+  },
+  {
+    "url": "https://virasat-511210.web.app/demo",
+    "mode": "mobile",
+    "perf": 65,
+    "a11y": 95,
+    "best_practices": 100,
+    "seo": 91,
+    "fcp": "4.9\u00a0s",
+    "lcp": "6.4\u00a0s",
+    "tbt": "20\u00a0ms",
+    "cls": "0",
+    "json_file": "docs\\perf\\lighthouse_live\\demo.mobile.report.json"
+  },
+  {
+    "url": "https://virasat-511210.web.app/demo",
+    "mode": "desktop",
+    "perf": 100,
+    "a11y": 95,
+    "best_practices": 100,
+    "seo": 91,
+    "fcp": "0.5\u00a0s",
+    "lcp": "0.8\u00a0s",
+    "tbt": "10\u00a0ms",
+    "cls": "0.017",
+    "json_file": "docs\\perf\\lighthouse_live\\demo.desktop.report.json"
+  },
+  {
+    "url": "https://virasat-511210.web.app/case/VR-2026-0142/overview",
+    "mode": "mobile",
+    "perf": 60,
+    "a11y": 89,
+    "best_practices": 96,
+    "seo": 92,
+    "fcp": "2.3\u00a0s",
+    "lcp": "7.3\u00a0s",
+    "tbt": "230\u00a0ms",
+    "cls": "0.126",
+    "json_file": "docs\\perf\\lighthouse_live\\case.mobile.report.json"
+  },
+  {
+    "url": "https://virasat-511210.web.app/case/VR-2026-0142/overview",
+    "mode": "desktop",
+    "perf": 94,
+    "a11y": 95,
+    "best_practices": 96,
+    "seo": 92,
+    "fcp": "0.5\u00a0s",
+    "lcp": "1.4\u00a0s",
+    "tbt": "0\u00a0ms",
+    "cls": "0.009",
+    "json_file": "docs\\perf\\lighthouse_live\\case.desktop.report.json"
+  }
+]
