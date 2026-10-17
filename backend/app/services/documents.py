@@ -13,6 +13,7 @@ Enforces:
 
 import logging
 import re
+import time
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -22,8 +23,10 @@ from google.cloud import storage
 
 from app.config import get_settings
 from app.db.repositories import CasesRepo, DocumentRepo, PersonRepo
+from app.deps import get_storage_client
 from app.engines.extract import ExtractionEngine
 from app.errors import BadRequest, Forbidden, NotFound
+from app.services.timing import record_gcs_call
 
 logger = logging.getLogger(__name__)
 
@@ -74,15 +77,17 @@ def get_document_access_url(case_id: str, doc_id: str, gcs_uri: str) -> str:
     blob_name = f"cases/{case_id}/docs/{doc_id}"
 
     try:
-        client = storage.Client()
+        client = get_storage_client(settings)
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
         # Signed URL strictly expires in 10 minutes
+        t0 = time.perf_counter()
         signed_url = blob.generate_signed_url(
             version="v4",
             expiration=timedelta(minutes=10),
             method="GET",
         )
+        record_gcs_call("sign_url", (time.perf_counter() - t0) * 1000.0, blob_name)
         return signed_url
     except Exception as e:
         logger.debug(f"Signed URL generation unavailable locally ({e}), falling back to streaming proxy.")
@@ -142,10 +147,12 @@ class DocumentService:
 
         # 5. Upload to GCS
         try:
-            client = storage.Client()
+            client = get_storage_client(self.settings)
             bucket = client.bucket(self.settings.GCS_BUCKET)
             blob = bucket.blob(blob_path)
+            t0 = time.perf_counter()
             blob.upload_from_string(file_bytes, content_type=mime_type)
+            record_gcs_call("upload", (time.perf_counter() - t0) * 1000.0, blob_path)
         except Exception as e:
             logger.warning(f"Could not upload blob to GCS ({e}); proceeding with record creation.")
 

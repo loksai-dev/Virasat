@@ -31,10 +31,18 @@ def snapshot_context():
 
 
 
+import time
+from app.services.timing import record_spanner_query
+
+
 def run_in_snapshot[T](func: Callable[[Snapshot], T]) -> T:
     """Execute callable inside a read-only snapshot."""
+    t0 = time.perf_counter()
     with snapshot_context() as snapshot:
-        return func(snapshot)
+        res = func(snapshot)
+    dur_ms = (time.perf_counter() - t0) * 1000.0
+    record_spanner_query("snapshot", dur_ms)
+    return res
 
 
 def run_in_transaction[T](func: Callable[[Transaction], T]) -> T:
@@ -43,5 +51,9 @@ def run_in_transaction[T](func: Callable[[Transaction], T]) -> T:
     Spanner's database.run_in_transaction automatically handles Aborted exceptions
     and retries the transaction until commit succeeds or a non-retryable error occurs.
     """
+    t0 = time.perf_counter()
     db = get_db()
-    return db.run_in_transaction(func)
+    res = db.run_in_transaction(func)
+    dur_ms = (time.perf_counter() - t0) * 1000.0
+    record_spanner_query("transaction", dur_ms)
+    return res

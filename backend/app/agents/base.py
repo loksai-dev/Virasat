@@ -27,6 +27,8 @@ from tenacity import (
 from app.config import Settings, get_settings
 from app.deps import get_genai_client
 from app.services.events import EventEmitter
+from app.services.timing import record_model_call
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -132,12 +134,20 @@ class BaseAgent:
                     logger.debug("Agent %s turn %d calling model %s", self.name, turn, self.model)
                     
                     # Run generate_content in thread pool to avoid blocking asyncio
+                    t_m0 = time.perf_counter()
                     response = await asyncio.to_thread(
                         self._genai_client.models.generate_content,
                         model=self.model,
                         contents=contents,
                         config=gen_config,
                     )
+                    dur_ms = (time.perf_counter() - t_m0) * 1000.0
+                    in_tokens = 0
+                    out_tokens = 0
+                    if hasattr(response, "usage_metadata") and response.usage_metadata:
+                        in_tokens = getattr(response.usage_metadata, "prompt_token_count", 0) or 0
+                        out_tokens = getattr(response.usage_metadata, "candidates_token_count", 0) or 0
+                    record_model_call(self.model, dur_ms, in_tokens, out_tokens, operation=f"{self.name}:turn_{turn}")
 
                     # Check for tool/function calls
                     function_calls = getattr(response, "function_calls", None)
