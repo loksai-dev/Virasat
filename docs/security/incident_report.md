@@ -37,9 +37,11 @@ A comprehensive cryptographic and cloud inventory confirmed:
 | **2026-10-17 08:48:27** | Local Config Updated | Injected new key into gitignored `frontend/.env.local`. |
 | **2026-10-17 08:49:07** | Frontend Rebuilt | Vite/TypeScript build verified with new key in `dist/assets/firebase-BIqD6Z0o.js`. |
 | **2026-10-17 08:49:50** | Production Deployed | Deployed to Firebase Hosting (`https://virasat-511210.web.app`). |
-| **2026-10-17 08:50:12** | Live Auth Verification | Anonymous authentication verified live; unauthorized referrers verified blocked (HTTP 403). |
 | **2026-10-17 08:50:50** | Repository Cleaned | Rewrote `scripts/scan_secrets.py` with zero literals; configured `.gitleaks.toml` and `.github/workflows/gitleaks.yml`. |
 | **2026-10-17 08:54:43** | Working Tree Verified | `gitleaks dir` returned 0 leaks on the working tree. |
+| **2026-10-17 09:01:08** | Old Key Deleted | Deleted `5da81e16-0ead-4fca-974b-ed7e97150bf5` in GCP (`deleteTime: 2026-10-17T03:31:08Z`). |
+| **2026-10-17 09:01:22** | Revocation Verified | API calls using old key confirmed failing with `HTTP 400 API key expired`. |
+| **2026-10-17 09:16:55** | Release Tag Pushed | Pushed security release tag `v1.0.2` to GitHub origin. |
 
 ---
 
@@ -64,7 +66,7 @@ A comprehensive cryptographic and cloud inventory confirmed:
 
 | Credential Type | Identifier / Name | Creation Time | Restrictions / Status |
 | :--- | :--- | :--- | :--- |
-| **API Key (Compromised)** | `projects/275851497852/locations/global/keys/5da81e16-0ead-4fca-974b-ed7e97150bf5` | `2026-10-10T13:33:34Z` | Firebase API targets; **No referrer restrictions (FLAGGED)**. |
+| **API Key (Compromised)** | `projects/275851497852/locations/global/keys/5da81e16-0ead-4fca-974b-ed7e97150bf5` | `2026-10-10T13:33:34Z` | **DELETED** on 2026-10-17T03:31:08Z. Invalidation verified. |
 | **API Key (Replacement)** | `projects/275851497852/locations/global/keys/65c215d3-3927-4fa1-8265-b86f09cf5c72` | `2026-10-17T03:17:49Z` | **Restricted to allowed referrers and Identity/Auth APIs**. |
 | **Service Account** | `virasat-api@virasat-511210.iam.gserviceaccount.com` | `2026-10-10T11:58:38Z` | **0 user-managed keys**. Google-provided system managed keys only. |
 | **Service Account** | `firebase-adminsdk-fbsvc@virasat-511210.iam.gserviceaccount.com` | `2026-10-10T11:58:38Z` | **0 user-managed keys**. Google-provided system managed keys only. |
