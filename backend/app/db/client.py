@@ -22,13 +22,22 @@ def get_db():
     return get_spanner_database(settings)
 
 
-@contextmanager
-def snapshot_context():
-    """Context manager yielding a multi-use read-only snapshot."""
-    db = get_db()
-    with db.snapshot(multi_use=True) as snapshot:
-        yield snapshot
+import datetime
 
+@contextmanager
+def snapshot_context(max_staleness_sec: int | None = None):
+    """Context manager yielding a multi-use read-only snapshot.
+    
+    If max_staleness_sec is provided, uses bounded staleness for local replica reads.
+    """
+    db = get_db()
+    if max_staleness_sec and max_staleness_sec > 0:
+        staleness = datetime.timedelta(seconds=max_staleness_sec)
+        with db.snapshot(max_staleness=staleness) as snapshot:
+            yield snapshot
+    else:
+        with db.snapshot(multi_use=True) as snapshot:
+            yield snapshot
 
 
 import time
@@ -42,6 +51,16 @@ def run_in_snapshot[T](func: Callable[[Snapshot], T]) -> T:
         res = func(snapshot)
     dur_ms = (time.perf_counter() - t0) * 1000.0
     record_spanner_query("snapshot", dur_ms)
+    return res
+
+
+def run_in_bounded_staleness_snapshot[T](func: Callable[[Snapshot], T], max_staleness_sec: int = 10) -> T:
+    """Execute callable inside a bounded-staleness snapshot (e.g. 10s) for read-only dashboards."""
+    t0 = time.perf_counter()
+    with snapshot_context(max_staleness_sec=max_staleness_sec) as snapshot:
+        res = func(snapshot)
+    dur_ms = (time.perf_counter() - t0) * 1000.0
+    record_spanner_query("bounded_snapshot", dur_ms)
     return res
 
 

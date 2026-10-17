@@ -1,6 +1,6 @@
 # Virasat Estate Settlement Platform: Empirical Evaluation Report
 
-**Evaluation Date**: 2026-10-11 13:16:56 UTC  
+**Evaluation Date**: 2026-10-17 04:22:16 UTC  
 **GCP Project**: `virasat-511210` | **Spanner Instance**: `virasat-inst`  
 **AI Models**: Gemini Pro (`gemini-2.5-pro`), Gemini Flash (`gemini-2.5-flash`), Embeddings (`text-embedding-005`, 768-dim)  
 

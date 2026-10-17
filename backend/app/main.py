@@ -17,6 +17,8 @@ from app.routers import api_router, root_router
 from app.services.change_propagation import change_propagator
 from app.services.rate_limiter import rate_limiter
 
+from fastapi.middleware.gzip import GZipMiddleware
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,6 +28,23 @@ async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("Starting Virasat FastAPI application")
     ensure_firebase_initialized()
+
+    # Warm Spanner session pool at startup
+    try:
+        db = get_spanner_database()
+        with db.snapshot() as snap:
+            list(snap.execute_sql("SELECT 1"))
+        logger.info("Spanner session pool warmed successfully at startup.")
+    except Exception as e:
+        logger.warning("Spanner session warm-up skipped: %s", e)
+
+    # Initialize GenAI client at startup
+    try:
+        get_genai_client()
+        logger.info("GenAI client pre-warmed successfully at startup.")
+    except Exception as e:
+        logger.warning("GenAI client init skipped: %s", e)
+
     yield
     logger.info("Shutting down Virasat FastAPI application")
 
@@ -43,7 +62,7 @@ app = FastAPI(
 )
 
 # --------------------------------------------------------------------------
-# Cross-Origin Resource Sharing (CORS)
+# Cross-Origin Resource Sharing (CORS) & GZip Compression
 # --------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
@@ -52,6 +71,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 # --------------------------------------------------------------------------

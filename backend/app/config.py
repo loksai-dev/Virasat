@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_RUNS: int = 10
     DAILY_MODEL_CALL_BUDGET_PER_UID: int = 150
     SCHEDULER_SERVICE_ACCOUNT: str = "virasat-api@virasat-511210.iam.gserviceaccount.com"
+    MODEL_CALL_TIMEOUT_SECONDS: float = 25.0
+    MODEL_MAX_RETRIES: int = 1
 
     model_config = SettingsConfigDict(
         env_file=".env",

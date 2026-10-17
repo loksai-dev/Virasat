@@ -52,7 +52,7 @@ def run_pipeline_and_stream(client: httpx.Client, base_url: str, scenario: str, 
         json={"stages": ["all"]},
         headers=headers,
     )
-    if run_res.status_code not in (200, 201):
+    if run_res.status_code not in (200, 201, 202):
         raise RuntimeError(f"Failed to trigger run: {run_res.status_code} {run_res.text}")
     run_id = run_res.json()["run_id"]
 
@@ -77,7 +77,7 @@ def run_pipeline_and_stream(client: httpx.Client, base_url: str, scenario: str, 
                     try:
                         data = json.loads(line.replace("data: ", "").strip())
                         now_ts = time.perf_counter()
-                        ev_type = data.get("event_type") or current_event_type or ""
+                        ev_type = data.get("type") or data.get("event_type") or current_event_type or ""
                         msg = data.get("message", "")
                         events.append((now_ts, ev_type, msg))
 

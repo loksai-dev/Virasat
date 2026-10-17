@@ -176,6 +176,7 @@ async def classify_intent(message: str) -> dict[str, Any]:
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.0,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         dur_ms = (time.perf_counter() - t0) * 1000.0
@@ -542,8 +543,11 @@ async def stream_chat_response(
         content=clean_msg,
     )
 
-    # 3. Classify Intent
-    intent_data = await classify_intent(clean_msg)
+    # 3 & 5. Run Intent Classification and GraphRAG Retrieval in Parallel
+    intent_task = asyncio.create_task(classify_intent(clean_msg))
+    retrieve_task = asyncio.to_thread(GraphRAGEngine().retrieve, case_id, clean_msg)
+    intent_data, rag_context = await asyncio.gather(intent_task, retrieve_task)
+
     intent = intent_data.get("intent", "general_process")
     scenario = intent_data.get("scenario", "current")
 
@@ -559,10 +563,6 @@ async def stream_chat_response(
         tool_data = await asyncio.to_thread(get_missing_docs, case_id)
     elif intent == "asset_question":
         tool_data = await asyncio.to_thread(get_claim_status, case_id, clean_msg)
-
-    # 5. GraphRAG Retrieval (Legal corpus vector search + Bi-temporal graph facts + Entity linking)
-    graphrag = GraphRAGEngine()
-    rag_context = await asyncio.to_thread(graphrag.retrieve, case_id, clean_msg)
 
     # Graph fact injection for tools
     extra_facts = []
@@ -698,6 +698,7 @@ async def stream_chat_response(
 
         def _generate_call(m_name: str) -> dict[str, Any]:
             t0 = time.perf_counter()
+            is_flash = "flash" in m_name.lower()
             resp = client.models.generate_content(
                 model=m_name,
                 contents=prompt_to_send,
@@ -705,6 +706,7 @@ async def stream_chat_response(
                     system_instruction=system_instruction,
                     response_mime_type="application/json",
                     temperature=0.1,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0 if is_flash else 128),
                 ),
             )
             dur_ms = (time.perf_counter() - t0) * 1000.0
@@ -718,8 +720,8 @@ async def stream_chat_response(
 
         @retry(
             retry=retry_if_exception_type(Exception),
-            wait=wait_exponential(multiplier=1.5, min=2, max=8),
-            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1.2, min=1, max=4),
+            stop=stop_after_attempt(2),
             reraise=True,
         )
         def _generate_with_retry() -> dict[str, Any]:
@@ -798,7 +800,7 @@ async def stream_chat_response(
         token_chunk = word if idx == 0 else " " + word
         event_payload = json.dumps({"type": "token", "content": token_chunk})
         yield f"data: {event_payload}\n\n"
-        await asyncio.sleep(0.015)
+        await asyncio.sleep(0.004)
 
     done_event = {
         "type": "done",

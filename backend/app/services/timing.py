@@ -121,8 +121,12 @@ def record_model_call(
     output_tokens: int = 0,
     operation: str = "generate_content",
     cached: bool = False,
+    in_tokens: int | None = None,
+    out_tokens: int | None = None,
 ) -> None:
     """Record structured metrics for a Vertex AI Gemini call."""
+    actual_input = in_tokens if in_tokens is not None else input_tokens
+    actual_output = out_tokens if out_tokens is not None else output_tokens
     add_span(
         name=f"{operation}:{model}",
         category="model",
@@ -130,9 +134,9 @@ def record_model_call(
         details={
             "model": model,
             "operation": operation,
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "total_tokens": input_tokens + output_tokens,
+            "input_tokens": actual_input,
+            "output_tokens": actual_output,
+            "total_tokens": actual_input + actual_output,
             "cached": cached,
         },
     )

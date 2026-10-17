@@ -122,9 +122,11 @@ class BaseAgent:
                 if context:
                     contents.append(f"CASE_CONTEXT:\n{json.dumps(context, default=str)}")
 
+                is_flash = "flash" in str(self.model).lower()
                 gen_config = types.GenerateContentConfig(
                     system_instruction=self.instruction,
                     temperature=0.1,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0 if is_flash else 128),
                 )
                 if self.tools:
                     gen_config.tools = self.tools
