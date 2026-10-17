@@ -24,7 +24,10 @@ import {
   Tooltip as RechartsTooltip, 
   ResponsiveContainer 
 } from 'recharts';
-import { KpiCard, SectionCard, StatusBadge, InfoTooltip } from '@/components';
+import { KpiCard } from '@/components/shared/KpiCard';
+import { SectionCard } from '@/components/shared/SectionCard';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { formatINR } from '@/lib/utils';
 import { useVirasatStore } from '@/store/useVirasatStore';
 import { baseInstitutionDashboard } from '@/mocks/institutionDashboardData';

@@ -1,7 +1,7 @@
 import React, { useEffect, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ScrollToTop } from './components';
+import { ScrollToTop } from './components/shared/ScrollToTop';
 import { PublicLayout } from './layouts/PublicLayout';
 import { CaseLayout } from './layouts/CaseLayout';
 import { InstitutionLayout } from './layouts/InstitutionLayout';
@@ -30,7 +30,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 10,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: 1,
     },
   },
 });

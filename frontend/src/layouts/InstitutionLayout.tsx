@@ -11,7 +11,11 @@ import {
   Bell, 
   HelpCircle 
 } from 'lucide-react';
-import { DisclaimerFooter, ToastProvider, LanguageSwitcher, PageTransition, VirasatLogo } from '@/components';
+import { DisclaimerFooter } from '@/components/shared/DisclaimerFooter';
+import { ToastProvider } from '@/components/shared/ToastProvider';
+import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
+import { PageTransition } from '@/components/shared/PageTransition';
+import { VirasatLogo } from '@/components/brand/VirasatLogo';
 import { baseInstitutionDashboard } from '@/mocks/institutionDashboardData';
 
 export const InstitutionLayout: React.FC = () => {

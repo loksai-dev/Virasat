@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -216,10 +217,14 @@ register_exception_handlers(app)
 # --------------------------------------------------------------------------
 # Core Health and Readiness Checks (Outside /api)
 # --------------------------------------------------------------------------
+GIT_COMMIT = os.environ.get("GIT_COMMIT", "379d382")
+VERSION = "1.0.1"
+
+
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
-    """Liveness probe: always returns ok."""
-    return HealthResponse(status="ok")
+    """Liveness probe: returns ok with service version and git commit hash."""
+    return HealthResponse(status="ok", version=VERSION, commit=GIT_COMMIT)
 
 
 @app.get("/ready", response_model=ReadyResponse, tags=["Health"])

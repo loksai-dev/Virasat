@@ -26,15 +26,13 @@ import {
   Bot
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { 
-  AgentsActivePill, 
-  LanguageSwitcher, 
-  DisclaimerFooter, 
-  ToastProvider,
-  AskVirasatDrawer,
-  PageTransition,
-  VirasatLogo
-} from '@/components';
+import { AgentsActivePill } from '@/components/shared/AgentsActivePill';
+import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
+import { DisclaimerFooter } from '@/components/shared/DisclaimerFooter';
+import { ToastProvider } from '@/components/shared/ToastProvider';
+import { AskVirasatDrawer } from '@/components/shared/AskVirasatDrawer';
+import { PageTransition } from '@/components/shared/PageTransition';
+import { VirasatLogo } from '@/components/brand/VirasatLogo';
 import { useVirasatStore, CaseScenario } from '@/store/useVirasatStore';
 import { baseCaseData } from '@/mocks/caseData';
 import { useCaseStream } from '@/api/useCaseStream';

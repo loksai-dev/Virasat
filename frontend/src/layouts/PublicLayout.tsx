@@ -12,7 +12,10 @@ import {
   Award,
   Globe
 } from 'lucide-react';
-import { LanguageSwitcher, ToastProvider, PageTransition, VirasatLogo } from '@/components';
+import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
+import { ToastProvider } from '@/components/shared/ToastProvider';
+import { PageTransition } from '@/components/shared/PageTransition';
+import { VirasatLogo } from '@/components/brand/VirasatLogo';
 import { useVirasatStore } from '@/store/useVirasatStore';
 
 export const PublicLayout: React.FC = () => {
@@ -187,7 +190,7 @@ export const PublicLayout: React.FC = () => {
                 <li><a href="#for-banks" className="hover:text-white transition-colors">For Banks & Insurers</a></li>
                 <li><Link to="/institution" className="hover:text-white transition-colors">Institutional STP Console</Link></li>
                 <li><Link to="/impact" className="hover:text-white transition-colors">Impact & Statistics</Link></li>
-                <li><a href="#security" className="hover:text-white transition-colors">Security & DigiLocker</a></li>
+                <li><a href="#security" className="hover:text-white transition-colors">Security & Audit Trail</a></li>
               </ul>
             </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Sparkles, 
@@ -30,14 +30,13 @@ import {
   Award,
   X
 } from 'lucide-react';
-import { 
-  KpiCard, 
-  SectionCard, 
-  StatusBadge, 
-  AvatarChip,
-  AgentsActivePill,
-  IsometricHeroCard
-} from '@/components';
+import { KpiCard } from '@/components/shared/KpiCard';
+import { SectionCard } from '@/components/shared/SectionCard';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { AvatarChip } from '@/components/shared/AvatarChip';
+import { AgentsActivePill } from '@/components/shared/AgentsActivePill';
+import { IsometricHeroCard } from '@/components/shared/IsometricHeroCard';
+import { CloudPlatformStrip } from '@/components/brand/CloudLogos';
 import { formatINR } from '@/lib/utils';
 import { baseCaseData } from '@/mocks/caseData';
 import { basePeople } from '@/mocks/peopleData';
@@ -47,6 +46,20 @@ import { baseClaims } from '@/mocks/claimsData';
 export const LandingPage: React.FC = () => {
   const [activePreviewTab, setActivePreviewTab] = useState<'graph' | 'sankey' | 'claims'>('graph');
   const [storyModalOpen, setStoryModalOpen] = useState(false);
+
+  useEffect(() => {
+    // Idle pre-warm backend and prefetch demo route chunk
+    const warmAndPrefetch = () => {
+      fetch('/api/health').catch(() => {});
+      import('./DemoExperiencePage').catch(() => {});
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(warmAndPrefetch, { timeout: 3000 });
+    } else {
+      setTimeout(warmAndPrefetch, 1500);
+    }
+  }, []);
 
   return (
     <div className="space-y-20 pb-16">
@@ -127,59 +140,15 @@ export const LandingPage: React.FC = () => {
                 Enterprise Infrastructure
               </div>
               <h2 className="text-lg md:text-xl font-serif font-bold text-navy mt-0.5">
-                Built on Google Cloud & National Digital Public Infrastructure
+                Built on Google Cloud
               </h2>
             </div>
-            <div className="text-xs text-slate-500">
-              Compliant with RBI Circular DBOD/2005 & IRDAI Deceased Claims Guidelines
+            <div className="text-xs text-slate-500 max-w-md">
+              Informed by public RBI and IRDAI claim-settlement guidance. Guidance, not legal advice.
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 items-center">
-            {/* Gemini */}
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xs">
-                G
-              </div>
-              <div>
-                <div className="text-xs font-bold text-navy">Google Gemini</div>
-                <div className="text-[10px] text-slate-500">Multimodal Legal AI</div>
-              </div>
-            </div>
-
-            {/* Spanner Graph */}
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xs">
-                SG
-              </div>
-              <div>
-                <div className="text-xs font-bold text-navy">Spanner Graph</div>
-                <div className="text-[10px] text-slate-500">Kinship & Succession Graph</div>
-              </div>
-            </div>
-
-            {/* Cloud Run */}
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
-                CR
-              </div>
-              <div>
-                <div className="text-xs font-bold text-navy">Cloud Run</div>
-                <div className="text-[10px] text-slate-500">Serverless Microservices</div>
-              </div>
-            </div>
-
-            {/* Firebase */}
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-800 flex items-center justify-center font-bold text-xs">
-                FB
-              </div>
-              <div>
-                <div className="text-xs font-bold text-navy">Firebase</div>
-                <div className="text-[10px] text-slate-500">Real-time STP Pipeline</div>
-              </div>
-            </div>
-          </div>
+          <CloudPlatformStrip />
 
           {/* 3 Core Trust Badges */}
           <div className="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100">
@@ -189,7 +158,7 @@ export const LandingPage: React.FC = () => {
               </div>
               <div>
                 <strong className="block text-navy font-semibold">Encrypted Vault</strong>
-                <span className="text-slate-500 text-[11px]">AES-256 & DigiLocker SHA-256 seal</span>
+                <span className="text-slate-500 text-[11px]">Encrypted at rest on Google Cloud. SHA-256 hash-chained audit log.</span>
               </div>
             </div>
 
@@ -209,7 +178,7 @@ export const LandingPage: React.FC = () => {
               </div>
               <div>
                 <strong className="block text-navy font-semibold">Audit-Ready</strong>
-                <span className="text-slate-500 text-[11px]">Cryptographic tamper-evident docket</span>
+                <span className="text-slate-500 text-[11px]">Tamper-evident audit trail & cryptographic verification</span>
               </div>
             </div>
           </div>
@@ -320,7 +289,7 @@ export const LandingPage: React.FC = () => {
               Upload Certificate
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Upload death certificate or fetch instantly via DigiLocker. Virasat cryptographically validates municipal registry seals in seconds.
+              Upload death certificate or probate copy. Virasat cryptographically validates municipal registry seals and document integrity in seconds.
             </p>
           </div>
 
@@ -771,7 +740,7 @@ export const LandingPage: React.FC = () => {
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5 stroke-[2.5]" />
-                <span><strong>100% Cryptographic verification:</strong> Eliminates paper forgery with DigiLocker and graph integrity.</span>
+                <span><strong>100% Cryptographic verification:</strong> Eliminates paper forgery with tamper-evident SHA-256 audit trails and graph integrity.</span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5 stroke-[2.5]" />
@@ -829,7 +798,7 @@ export const LandingPage: React.FC = () => {
                 Encrypted Vault
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                All death certificates, succession orders, and identity dockets are encrypted with AES-256 at rest and TLS 1.3 in transit with DigiLocker SHA-256 hashing.
+                All death certificates, succession orders, and identity dockets are encrypted with AES-256 at rest and TLS 1.3 in transit with SHA-256 hash-chained integrity verification.
               </p>
             </div>
 

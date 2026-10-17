@@ -221,14 +221,15 @@ async def test_stricter_rate_limits_and_concurrency(async_client: AsyncClient):
     test_uid = f"test-p14-strict-{uuid.uuid4().hex[:8]}"
     headers = {"Authorization": f"Bearer {test_uid}"}
     case_id = clone_seed(seed_key="sharma", uid=test_uid, mode="prefilled", copy_storage=False)
+    case_id_2 = clone_seed(seed_key="mehta", uid=test_uid, mode="prefilled", copy_storage=False)
 
     # 1. One active run per UID
-    # Start first run
+    # Start first run on Case 1
     run1_resp = await async_client.post(f"/api/cases/{case_id}/run", headers=headers)
     assert run1_resp.status_code == 202
 
-    # Attempting second concurrent run immediately triggers 429
-    run2_resp = await async_client.post(f"/api/cases/{case_id}/run", headers=headers)
+    # Attempting second concurrent run on Case 2 immediately triggers 429
+    run2_resp = await async_client.post(f"/api/cases/{case_id_2}/run", headers=headers)
     assert run2_resp.status_code == 429
     assert "Only one active pipeline run is permitted" in run2_resp.text
 

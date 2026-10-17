@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-17T01:57:07Z",
+  "timestamp": "2026-10-17T13:50:20Z",
   "base_url": "https://virasat-511210.web.app",
   "runs": [
     {
@@ -10,7 +10,7 @@
         "steps": [
           {
             "step": "landing",
-            "duration_sec": 5.29,
+            "duration_sec": 7.75,
             "screenshot": "docs\\submission\\audit_screens\\chromium_sharma_01_landing.png"
           },
           {
@@ -19,12 +19,12 @@
           },
           {
             "step": "wizard",
-            "url": "https://virasat-511210.web.app/case/b877cc54-a881-4d05-a9cb-c74907c4a779/start?tour=true",
+            "url": "https://virasat-511210.web.app/case/f8e52bad-554d-43e3-a2c1-598c38f2cdc5/start?tour=true",
             "screenshot": "docs\\submission\\audit_screens\\chromium_sharma_03_wizard.png"
           },
           {
             "step": "overview",
-            "url": "https://virasat-511210.web.app/case/b877cc54-a881-4d05-a9cb-c74907c4a779/overview",
+            "url": "https://virasat-511210.web.app/case/f8e52bad-554d-43e3-a2c1-598c38f2cdc5/overview",
             "screenshot": "docs\\submission\\audit_screens\\chromium_sharma_04_overview.png"
           },
           {
@@ -71,7 +71,7 @@
       ],
       "page_errors": [],
       "http_errors": [
-        "404 https://virasat-api-275851497852.asia-south1.run.app/api/cases/b877cc54-a881-4d05-a9cb-c74907c4a779/runs/latest"
+        "404 https://virasat-api-275851497852.asia-south1.run.app/api/cases/f8e52bad-554d-43e3-a2c1-598c38f2cdc5/runs/latest"
       ]
     },
     {
@@ -82,7 +82,7 @@
         "steps": [
           {
             "step": "landing",
-            "duration_sec": 2.47,
+            "duration_sec": 2.42,
             "screenshot": "docs\\submission\\audit_screens\\chromium_mehta_01_landing.png"
           },
           {
@@ -91,12 +91,12 @@
           },
           {
             "step": "wizard",
-            "url": "https://virasat-511210.web.app/case/df71e116-d6ec-4f12-8e7a-5d0ea70b3454/start?tour=true",
+            "url": "https://virasat-511210.web.app/case/d0b9033f-a92a-4ea3-97b1-774ade428c1c/start?tour=true",
             "screenshot": "docs\\submission\\audit_screens\\chromium_mehta_03_wizard.png"
           },
           {
             "step": "overview",
-            "url": "https://virasat-511210.web.app/case/df71e116-d6ec-4f12-8e7a-5d0ea70b3454/overview",
+            "url": "https://virasat-511210.web.app/case/d0b9033f-a92a-4ea3-97b1-774ade428c1c/overview",
             "screenshot": "docs\\submission\\audit_screens\\chromium_mehta_04_overview.png"
           },
           {
@@ -138,13 +138,9 @@
         ],
         "success": true
       },
-      "console_errors": [
-        "[error] Failed to load resource: the server responded with a status of 404 ()"
-      ],
+      "console_errors": [],
       "page_errors": [],
-      "http_errors": [
-        "404 https://virasat-api-275851497852.asia-south1.run.app/api/cases/df71e116-d6ec-4f12-8e7a-5d0ea70b3454/runs/latest"
-      ]
+      "http_errors": []
     },
     {
       "test": "Firefox Smoke Test",
@@ -154,7 +150,7 @@
         "steps": [
           {
             "step": "landing",
-            "duration_sec": 2.87,
+            "duration_sec": 3.23,
             "screenshot": "docs\\submission\\audit_screens\\firefox_sharma_01_landing.png"
           },
           {
@@ -163,12 +159,12 @@
           },
           {
             "step": "wizard",
-            "url": "https://virasat-511210.web.app/case/2c582aba-59a3-4327-8516-df3ee07496f0/start?tour=true",
+            "url": "https://virasat-511210.web.app/case/5f7f1522-503f-4fae-b584-056e2d442600/start?tour=true",
             "screenshot": "docs\\submission\\audit_screens\\firefox_sharma_03_wizard.png"
           },
           {
             "step": "overview",
-            "url": "https://virasat-511210.web.app/case/2c582aba-59a3-4327-8516-df3ee07496f0/overview",
+            "url": "https://virasat-511210.web.app/case/5f7f1522-503f-4fae-b584-056e2d442600/overview",
             "screenshot": "docs\\submission\\audit_screens\\firefox_sharma_04_overview.png"
           }
         ],
@@ -186,7 +182,7 @@
         "steps": [
           {
             "step": "landing",
-            "duration_sec": 2.5,
+            "duration_sec": 2.55,
             "screenshot": "docs\\submission\\audit_screens\\webkit_sharma_01_landing.png"
           },
           {
@@ -195,12 +191,12 @@
           },
           {
             "step": "wizard",
-            "url": "https://virasat-511210.web.app/case/ef7de3d7-2781-4ac8-8568-0efc656d1599/start?tour=true",
+            "url": "https://virasat-511210.web.app/case/a7081001-9f5d-48c4-9a93-7b167fb69791/start?tour=true",
             "screenshot": "docs\\submission\\audit_screens\\webkit_sharma_03_wizard.png"
           },
           {
             "step": "overview",
-            "url": "https://virasat-511210.web.app/case/ef7de3d7-2781-4ac8-8568-0efc656d1599/overview",
+            "url": "https://virasat-511210.web.app/case/a7081001-9f5d-48c4-9a93-7b167fb69791/overview",
             "screenshot": "docs\\submission\\audit_screens\\webkit_sharma_04_overview.png"
           }
         ],

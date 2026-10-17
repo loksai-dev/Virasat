@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------
 class HealthResponse(BaseModel):
     status: str = "ok"
+    version: str = "1.0.1"
+    commit: str = "379d382"
 
 
 class ReadyModelConfig(BaseModel):

@@ -22,7 +22,8 @@ import {
   Trash2,
   Volume2
 } from 'lucide-react';
-import { StatusBadge, LanguageSwitcher } from '@/components';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { useVirasatStore } from '@/store/useVirasatStore';
 import { baseCaseData } from '@/mocks/caseData';
 import { basePeople } from '@/mocks/peopleData';

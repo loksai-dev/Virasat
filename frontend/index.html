@@ -10,10 +10,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Virasat — Every legacy, settled with care.</title>
     <meta name="description" content="AI-powered estate settlement platform helping Indian families access and transfer bank accounts, insurance, investments, and property with dignity, speed, and care." />
-    <!-- Google Fonts: Fraunces (600) and Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Preload Critical Self-Hosted Fonts -->
+    <link rel="preload" href="/fonts/fraunces-600-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fonts/inter-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fonts/inter-600-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+    <!-- Preconnect to Backend API -->
+    <link rel="preconnect" href="https://virasat-api-275851497852.asia-south1.run.app" crossorigin>
+    <link rel="dns-prefetch" href="https://virasat-api-275851497852.asia-south1.run.app">
   </head>
   <body class="bg-warm-sand text-navy-text antialiased selection:bg-teal-500 selection:text-white">
     <div id="root"></div>
