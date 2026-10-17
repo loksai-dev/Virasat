@@ -42,14 +42,13 @@ def check_case_access(
     if not case:
         raise NotFound(f"Case {case_id} not found")
 
-    # Seed templates and benchmark demo cases are read-only for all users
-    is_benchmark_or_seed = (
+    # Master seed templates are read-only for all users
+    is_master_seed = (
         case.get("owner_uid") == "SEED"
-        or bool(case.get("seed_key"))
-        or case.get("mode") == "prefilled"
-        or case_id in ("VR-2026-0142", "VR-2026-0187", "seed-sharma", "seed-mehta")
+        or case_id in ("seed-sharma", "seed-mehta")
+        or case_id.startswith("seed-")
     )
-    if is_benchmark_or_seed:
+    if is_master_seed:
         if for_mutation:
             raise Forbidden("Seed templates are read-only")
     elif case.get("owner_uid") != uid:

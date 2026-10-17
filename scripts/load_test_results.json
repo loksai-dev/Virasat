@@ -1,0 +1,14 @@
+{
+  "num_judges": 15,
+  "total_requests": 105,
+  "duration_sec": 60.68,
+  "sessions_created": 15,
+  "p50_ms": 5503.85,
+  "p95_ms": 20942.42,
+  "mean_ms": 7978.87,
+  "runs_accepted": 15,
+  "runs_throttled_429": 0,
+  "error_count": 0,
+  "error_rate_pct": 0.0,
+  "errors": []
+}

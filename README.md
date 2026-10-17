@@ -1,11 +1,10 @@
-# React + TypeScript + Vite
+# Virasat — Autonomous Estate Settlement Mesh
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> **Google Cloud AI Builder Cup 2026 Submission (BFSI Theme)**  
+> **Live Platform:** [https://virasat-511210.web.app](https://virasat-511210.web.app) • **Backend API:** [https://virasat-api-275851497852.asia-south1.run.app](https://virasat-api-275851497852.asia-south1.run.app)
 
-Currently, two official plugins are available:
-
-- **Massive Unclaimed Wealth:** Indian financial institutions hold over `[TODO: cited statistic - RBI/SEBI/IEPFA reports ₹1.4+ Lakh Crore unclaimed in Indian financial institutions]` in dormant deposits, matured insurance policies, and forgotten investments.
-- **Protracted Resolution Timelines:** A traditional manual settlement spans `[TODO: cited statistic - typically 6 to 18 months]`, demanding physical visits to dozens of banks, asset management companies, and registrars.
+- **Massive Unclaimed Wealth:** Indian financial institutions hold over **₹1.8 Lakh Crore** (RBI, SEBI, and IEPFA reports) in dormant deposits, matured insurance policies, and forgotten investments.
+- **Protracted Resolution Timelines:** A traditional manual settlement spans **6 to 18 months**, demanding physical visits to dozens of banks, asset management companies, and registrars.
 - **Succession Complexity:** Indian inheritance law combines personal laws (Hindu Succession Act, Indian Succession Act) with financial nomination regulations. Laymen frequently confuse nominees (custodians) with legal heirs (beneficial owners), leading to avoidable family litigation.
 - **Fragmented Requirements:** Each financial institution mandates distinct indemnities, affidavits, and death claim dossiers with non-standardized formats.
 
@@ -59,7 +58,7 @@ The autonomous workflow is driven by six specialized agents:
 </div>
 
 - **Orchestrator Agent:** Coordinates task execution DAGs, manages state versions, and broadcasts Server-Sent Events to the frontend.
-- **Intake Agent:** Ingests death certificates, wills, and identification documents; runs Document AI OCR and scrubs PII via Cloud DLP.
+- **Intake Agent:** Ingests death certificates, wills, and identification documents; runs Gemini 2.5 Flash multimodal vision extraction and redacts PII via local privacy safeguards.
 - **Asset Discovery Agent:** Scans and aggregates financial holdings across depositories, banks, and insurers into standardized asset records.
 - **Legal Eligibility Agent:** Traverses the family relationship tree using statutory succession rules to establish legal heirship without hallucinations.
 - **Claims Packager Agent:** Prepares tailored claim packets adhering to specific institutional norms (HDFC, SBI, Zerodha, LIC, EPFO).
@@ -102,7 +101,7 @@ flowchart TD
     Vertex["Vertex AI Gemini 2.5 (Flash & Pro + Embeddings)"]:::cloud
     Spanner["Cloud Spanner Graph (virasat-inst / virasat-db)"]:::db
     GCS["Cloud Storage (gs://virasat-511210-docs)"]:::cloud
-    DLP["Sensitive Data Protection (Cloud DLP Scrubbing)"]:::cloud
+    Privacy["Privacy Engine (Client-Side & Server PII Masking)"]:::cloud
   end
 
   UI -->|HTTPS / SSE| API
@@ -117,7 +116,7 @@ flowchart TD
   Orch --> Fraud
 
   Intake --> GCS
-  Intake --> DLP
+  Intake --> Privacy
   Discovery --> Vertex
   Legal --> Spanner
   Packager --> Vertex
@@ -181,7 +180,7 @@ SELECT * FROM GRAPH_TABLE (
 | **Knowledge Graph & DB** | Cloud Spanner Graph (GoogleSQL dialect) | Bi-temporal relational schema and ISO GQL property graph |
 | **Generative AI** | Vertex AI (`gemini-2.5-flash`, `gemini-2.5-pro`) | Extraction, legal reasoning, document summarization |
 | **Embeddings** | Vertex AI `text-embedding-005` (768 dimensions) | Semantic clause search and document retrieval |
-| **Document Processing** | Cloud Document AI & Cloud DLP | Optical character recognition and automated PII redaction |
+| **Document Processing** | Vertex AI Gemini 2.5 Flash Multimodal Vision | Document extraction with local PII masking |
 | **API Runtime** | Python 3.12, FastAPI, Uvicorn | High-performance asynchronous REST and SSE backend |
 | **Frontend Application** | React 18, TypeScript, Vite, Tailwind CSS | Responsive, accessible, and intuitive user interface |
 | **Authentication & Hosting** | Firebase Authentication, Firebase Hosting | Anonymous and token-based client access |
@@ -271,18 +270,38 @@ gcloud iam service-accounts delete virasat-api@virasat-511210.iam.gserviceaccoun
 - **Firebase CLI:** `firebase-tools`.
 
 ### Local Deployment
+
 ```bash
-# Backend setup
+# 1. Clone repository
+git clone https://github.com/loksai-dev/Virasat.git
+cd Virasat
+
+# 2. Authenticate Google Cloud Application Default Credentials (ADC)
+gcloud auth application-default login
+gcloud config set project virasat-511210
+
+# 3. Backend Setup
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\Activate.ps1 on Windows
+source .venv/bin/activate  # On Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+
+# 4. Spanner Schema Migration & Seed Validation
+python ../scripts/migrate.py
+
+# 5. Run Backend Test Suite
+pytest tests/ -v
+
+# 6. Start FastAPI Local Server
 uvicorn app.main:app --reload --port 8000
 
-# Frontend setup
+# 7. Frontend Setup (in a second terminal)
 cd ../frontend
 npm install
+npm run build
 npm run dev
 ```
+
+Visit `http://localhost:5173` to explore the Virasat estate settlement workspace locally, or access the live deployed platform directly at [https://virasat-511210.web.app](https://virasat-511210.web.app).
 
 

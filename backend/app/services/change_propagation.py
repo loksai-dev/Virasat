@@ -190,9 +190,12 @@ class ChangePropagator:
             stages=stages,
             context=context,
         )
-        run_task = run_manager._active_tasks.get(case_id)
-        if run_task:
+        while True:
+            run_task = run_manager._active_tasks.get(case_id)
+            if not run_task or run_task.done():
+                break
             await run_task
+            await asyncio.sleep(0.05)
         return run_rec
 
 

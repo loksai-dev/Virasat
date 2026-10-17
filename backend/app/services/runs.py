@@ -66,12 +66,13 @@ class RunManager:
         if owner_uid and owner_uid != "system":
             for cid, task in list(self._active_tasks.items()):
                 if not task.done() and self._active_uids.get(cid) == owner_uid:
-                    raise HTTPException(
-                        status_code=429,
-                        detail="Only one active pipeline run is permitted per user. Please wait for current run to finish.",
-                    )
+                    if trigger_kind == "manual" or cid != case_id:
+                        raise HTTPException(
+                            status_code=429,
+                            detail="Only one active pipeline run is permitted per user. Please wait for current run to finish.",
+                        )
 
-        # Check for currently active run on this case
+        # Check for currently active run on this case (for automatic EDIT re-runs, set rerun_pending)
         active_run = AgentRunRepo.get_active_by_case(case_id)
         if active_run:
             logger.info("Case %s already has active run %s. Setting rerun_pending = True.", case_id, active_run["run_id"])

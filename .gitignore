@@ -32,3 +32,7 @@ pnpm-debug.log*
 
 # Generated Test Packets
 backend/app/seed/packets/*.pdf
+
+# Scratch directory
+scratch/
+

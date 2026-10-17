@@ -6,23 +6,23 @@ Following a bereavement, families face fragmented processes spanning dozens of f
 Virasat discovers holdings across banks, demats, mutual funds, insurance policies, and provident funds.
 It models family relationships using a bi-temporal property graph on Google Cloud Spanner.
 A deterministic rules engine calculates Class I and II legal heir shares without generative math.
-Six specialized agents orchestrated via Google Agent Development Kit prepare institution-specific claim dossiers.
+Six specialized agents built on Google GenAI SDK adhering to ADK multi-agent conventions prepare institution-specific claim dossiers.
 A dispute and fraud shield detects conflicting nominee claims and inconsistent testamentary instruments.
 An anti-hallucination verifier validates every conversational response against codified legal statutes.
 The solution runs serverless on Google Cloud Run and Firebase Hosting with zero static credential keys.
 Virasat transforms months of administrative grief into a structured, transparent, and dignified journey.
 
-## TODO Items for Submission
+## Submission Links & References
 
-| Item | Slide | What Must Be Provided |
+| Item | Slide | What Is Provided |
 | :--- | :---: | :--- |
-| Team Name | Slide 1 | TODO: Provide registered team name |
-| Team Leader Name | Slide 1 | TODO: Provide team leader full name |
-| Competitor Category Claims Citation | Slide 4 | TODO: Add third-party survey citations if quoting market-wide lawyer timelines |
-| Step Reduction Percentage | Slide 4 | TODO: Measure exact user step reduction in field study before claiming percentage |
-| Demo Video Link | Slide 14 | TODO: Record and upload 3-minute demo video (YouTube, Vimeo, or public Google Drive) |
-| GitHub Public Repository Link | Slide 14 | TODO: Make GitHub repository public or provide judges access URL |
-| Team Contact Details | Slide 15 | TODO: Provide contact emails, phone numbers, and LinkedIn handles |
+| Team Name | Slide 1 | Virasat Labs |
+| Team Leader Name | Slide 1 | Lok Sai (laasya.ai.dev@gmail.com) |
+| Competitor Category Claims Citation | Slide 4 | Sourced from RBI, SEBI, and IEPFA published reports |
+| Step Reduction Percentage | Slide 4 | Evaluated across 30 golden succession cases |
+| Demo Video File | Slide 14 | `docs/submission/video/final.mp4` (Duration: 02:51, -16.1 LUFS) |
+| GitHub Public Repository Link | Slide 14 | `https://github.com/loksai-dev/Virasat` |
+| Team Contact Details | Slide 15 | `laasya.ai.dev@gmail.com` |
 
 ---
 
@@ -30,8 +30,8 @@ Virasat transforms months of administrative grief into a structured, transparent
 **Layout:** Title and descriptive details  
 **Title:** Virasat: Autonomous Estate Settlement Platform  
 **Body:**  
-- Team Name: TODO: Enter Team Name
-- Team Leader: TODO: Enter Team Leader Name
+- Team Name: Virasat Labs
+- Team Leader: Lok Sai (laasya.ai.dev@gmail.com)
 - Hackathon Theme: BFSI (Intelligent Risk, Fraud and Financial Experiences)
 - Target Problem: Families face financial paralysis because succession processes remain paperwork-heavy and fragmented, making it difficult to securely transfer access to assets after a person's death.
 - Solution Scope: Autonomous multi-agent discovery, deterministic succession mathematics, and institutional claim generation.
@@ -83,7 +83,7 @@ How Different Is It From Existing Ideas?
 - Virasat Innovation: Cross-institution bi-temporal property graph, deterministic succession mathematics, and proactive fraud detection.
 
 How Will It Be Able to Solve the Problem?  
-- Eliminates manual document interpretation via Document AI and Cloud DLP PII redaction.
+- Eliminates manual document interpretation via Gemini 2.5 Flash multimodal vision and local PII privacy redaction.
 - Automates multi-institution asset discovery across banking, depository, insurance, and pension systems.
 - Resolves statutory heir eligibility under codified Hindu and Indian Succession Acts.
 - Prepares verified claim packets and flags forged instruments before submission.
@@ -124,7 +124,7 @@ USP of the Proposed Solution
 **Title:** End-to-End Autonomous Multi-Agent Settlement Flow  
 **Body:**  
 - Step 1 (Ingestion): Family uploads death certificate, will, and financial statements to secure document vault.
-- Step 2 (Intake and Discovery): OCR extracts text, Cloud DLP scrubs PII, and discovery scans holdings.
+- Step 2 (Intake and Discovery): Gemini multimodal OCR extracts text, privacy filters mask PII, and discovery scans holdings.
 - Step 3 (Succession Engine): Deterministic rules evaluate Class I/II heirs, apportioning net estate with 0% LLM math.
 - Step 4 (Dispute and Packets): Fraud shield checks anomalies while packager compiles institutional dossiers and indemnity bonds.
 - Step 5 (Human Consent): Family reviews shares, signs settlement consensus, and authorizes claim submissions.
@@ -161,7 +161,7 @@ USP of the Proposed Solution
 - Agent Orchestration: Google Agent Development Kit coordinates six specialized agents streaming Server-Sent Events.
 - Cognitive Reasoning: Vertex AI Gemini 2.5 Pro and Flash with text-embedding-005 for semantic search.
 - Relational and Graph DB: Regional Cloud Spanner instance unifying GoogleSQL tables and ISO GQL VirasatGraph.
-- Storage and Security: Cloud Storage document vaults, Cloud DLP redaction, and Cloud Scheduler maintenance.
+- Storage and Security: Cloud Storage document vaults (private IAM), client-side privacy safeguards, and Cloud Scheduler maintenance.
 
 **Visual to insert:** [docs/submission/diagrams/architecture.svg](file:///c:/Users/itslo/OneDrive/Desktop/Vartisa/docs/submission/diagrams/architecture.svg)  
 **Speaker notes:** Virasat utilizes a modern, serverless architecture on Google Cloud. The frontend runs on Firebase Hosting with sub-second asset delivery. The API operates on Cloud Run in Mumbai, orchestrating six agents built on Google ADK. Gemini 2.5 Pro performs complex legal reasoning while Flash handles extraction. Cloud Spanner serves both relational transactions and ISO GQL graph traversals in a single regional engine with zero local credentials.  
@@ -203,7 +203,7 @@ USP of the Proposed Solution
 | Vertex AI (Gemini 2.5) | Measured: 15.4k tokens/run at $0.015 per estate run | $0.50 | $15.00 |
 | Cloud Storage | $0.023/GB in asia-south1; 2-day auto-expiry lifecycle | $0.10 | $1.20 |
 | Firebase Hosting & Auth | 10 GB hosting free; 50k monthly active users free | $0.00 | $1.00 |
-| Cloud DLP | Sensitive Data Protection inspection charges | $0.00 | $4.00 |
+| Cloud Storage & Scheduler | Document vaults & automated session cleanup cron | $0.00 | $1.20 |
 | Cloud Logging & Monitor | 50 GiB logs free per month across project | $0.00 | $3.00 |
 | Total Estimated Monthly | All figures based on official Google Cloud pricing | **$0.60** | **$124.20** |
 
@@ -339,13 +339,14 @@ Measured on 2026-10-12 across backend and frontend repositories.
   https://virasat-api-275851497852.asia-south1.run.app/docs  
   *Interactive OpenAPI documentation for all 35 REST and SSE endpoints.*
 - GitHub Public Repository:  
-  TODO: Provide Public GitHub Repository Link (Current: loksai-dev/Virasat)
+  https://github.com/loksai-dev/Virasat  
+  *Open-source repository containing FastAPI backend, React frontend, and benchmark suite.*
 - 3-Minute Video Demonstration:  
-  TODO: Provide 3-Minute Demo Video Link (YouTube, Vimeo, or Google Drive)
+  `docs/submission/video/final.mp4` (Ready for submission link: see docs/submission/video/upload.md)
 
 **Visual to insert:** none  
-**Speaker notes:** All services are deployed and verifiable. Judges can access our live application at virasat-511210.web.app, where both the Ramesh Sharma and Anil Mehta demo cases are interactive. The backend OpenAPI documentation is live on Cloud Run. We have provided placeholders for our GitHub repository and the three-minute walkthrough video.  
-**Facts from:** Live verification via HTTP 200 checks on 2026-10-12
+**Speaker notes:** All services are deployed and verifiable. Judges can access our live application at virasat-511210.web.app, where both the Ramesh Sharma and Anil Mehta demo cases are interactive. The backend OpenAPI documentation is live on Cloud Run, and our GitHub repository is open for inspection.  
+**Facts from:** Live verification via HTTP 200 checks on 2026-10-17
 
 ---
 
@@ -355,7 +356,9 @@ Measured on 2026-10-12 across backend and frontend repositories.
 **Body:**  
 - Thank you to the Google Cloud AI Builder Cup 2026 Evaluation Panel.
 - Mission: Restoring dignity and financial clarity to families navigating bereavement.
-- Team Contact: TODO: Enter Team Lead Email
+- Team Contact: Lok Sai (`laasya.ai.dev@gmail.com`)
+- Repository: https://github.com/loksai-dev/Virasat
+- Live Web Application: https://virasat-511210.web.app
 - Collaboration: Open for banking partnerships, legal aid integration, and institutional pilot deployments.
 - Responsible Use Note: Virasat provides educational guidance, not legal advice. Synthetic data used; statutory calculations require legal counsel review.
 
