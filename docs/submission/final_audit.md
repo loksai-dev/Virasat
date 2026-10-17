@@ -53,7 +53,7 @@ Virasat is awarded an unambiguous **GO** for final submission to the Google Clou
 
 ## 3. Changes Made & Actions Needed
 
-### Fixed by Auditor:
+### Fixed by Auditor (Release Commit: `b5f40fc`, Tag: `v1.0.0`):
 1. **Cloned Session Mutation Authorization Bug (`backend/app/services/case_service.py`):**
    - *Problem:* `is_benchmark_or_seed` checked `bool(case.get("seed_key"))` or `mode == "prefilled"`, mistakenly treating user-cloned demo sessions as read-only templates and throwing `403 Forbidden` when users edited nominees or marked heirs as predeceased.
    - *Fix:* Restricted read-only immutability strictly to master seed templates (`owner_uid == "SEED"` or `case_id.startswith("seed-")`), enabling full interactive editing, propagation, and what-if simulation on cloned cases while enforcing strict cross-user isolation.
