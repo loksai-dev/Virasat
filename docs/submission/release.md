@@ -88,3 +88,32 @@ gcloud run services update virasat-api \
   --update-env-vars AGENT_FALLBACK_TO_CACHE=true
 ```
 In this mode, all 30 golden succession cases, statutory calculations, and claims dossiers remain 100% accurate and functional using deterministic rules and cached responses, accompanied by a clear amber badge in the judge interface.
+
+---
+
+## 3. Rollback Points and Procedure
+
+### A. Cloud Run Rollback Point
+- **Active Serving Revision (Part 0):** `virasat-api-00007-s8f` (100% traffic)
+- **Known-Good Prior Revision:** `virasat-api-00006-xtw`
+- **Instant Rollback Command:**
+  ```bash
+  gcloud run services update-traffic virasat-api \
+    --region=asia-south1 \
+    --project=virasat-511210 \
+    --to-revisions=virasat-api-00006-xtw=100
+  ```
+
+### B. Firebase Hosting Rollback Point
+- **Active Hosting Channel:** `live`
+- **Pre-sprint Release Timestamp:** `2026-10-17 08:49:49 UTC`
+- **Rollback Procedure:** In Firebase Console > Hosting > Release History, select the release timestamped `2026-10-17 08:49:49` and click "Rollback", or redeploy using `firebase-tools hosting:clone`.
+
+### C. Audit Bug Fixes Deployment Status
+Confirmed: The audit bug fixes:
+1. `backend/app/services/case_service.py` (`check_case_access` authorization check)
+2. `backend/app/services/runs.py` (`rerun_pending` active run state tracking)
+3. `backend/app/services/change_propagation.py` (proper mutation propagation)
+
+Are all committed (commits `b5f40fc` and `09b5336`) and deployed in Cloud Run revision `virasat-api-00007-s8f`.
+
