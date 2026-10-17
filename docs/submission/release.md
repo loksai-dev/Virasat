@@ -1,9 +1,9 @@
-# Virasat v1.0.0 Release & Production Freeze Record
+# Virasat v1.0.2 Release & Production Freeze Record
 
 **Google Cloud AI Builder Cup 2026 — BFSI Theme**  
-**Submission Tag:** `v1.0.0`  
+**Submission Tag:** `v1.0.2` (Security Hardening & Key Rotation Release)  
 **Freeze Date:** 2026-10-17  
-**Submission Status:** FROZEN (Code Freeze Active; Configuration Changes Only)
+**Submission Status:** FROZEN & HARDENED (Production Active)
 
 ---
 
