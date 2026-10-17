@@ -44,11 +44,13 @@ gcloud run deploy $SERVICE_NAME `
   --service-account $SERVICE_ACCOUNT `
   --allow-unauthenticated `
   --no-cpu-throttling `
+  --cpu=2 `
+  --cpu-boost `
   --min-instances=1 `
   --max-instances=3 `
   --concurrency=20 `
   --timeout=900 `
-  --memory=1Gi `
+  --memory=2Gi `
   --env-vars-file="$ROOT_DIR\backend\env_vars.yaml" `
   --project=$PROJECT_ID `
   --quiet

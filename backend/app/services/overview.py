@@ -34,20 +34,40 @@ from app.services.case_service import check_case_access
 
 
 def get_case_overview(case_id: str, uid: str) -> dict[str, Any]:
-    """Compute rich aggregate dashboard overview strictly from stored Spanner state."""
+    """Compute rich aggregate dashboard overview strictly from stored Spanner state with parallel reads."""
+    import concurrent.futures
+
     case = check_case_access(case_id, uid, for_mutation=False)
     case_data_version = int(case.get("data_version", 1))
+    dec_id = case.get("deceased_person_id")
+
+    # Parallelize independent Spanner reads
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        f_dec = pool.submit(PersonRepo.get, dec_id) if dec_id else None
+        f_assets = pool.submit(AssetRepo.list_by_case, case_id)
+        f_claims = pool.submit(ClaimRepo.list_by_case, case_id)
+        f_disputes = pool.submit(DisputeRepo.list_by_case, case_id)
+        f_consent = pool.submit(ConsentRepo.list_by_case, case_id)
+        f_docs = pool.submit(DocumentRepo.list_by_case, case_id)
+        f_audit = pool.submit(AuditLogRepo.list_by_case, case_id, limit=8)
+        f_active_run = pool.submit(AgentRunRepo.get_active_by_case, case_id)
+        f_shares = pool.submit(ShareResultRepo.list_by_case, case_id, scenario="current")
+
+        dec = f_dec.result() if f_dec else None
+        raw_assets = f_assets.result()
+        claims = f_claims.result()
+        disputes = f_disputes.result()
+        parties = f_consent.result()
+        docs = f_docs.result()
+        audit_entries = f_audit.result()
+        active_run = f_active_run.result()
+        shares = f_shares.result()
 
     # 1. Deceased details
-    deceased_name = "Deceased"
-    dec_id = case.get("deceased_person_id")
-    if dec_id:
-        dec = PersonRepo.get(dec_id)
-        if dec:
-            deceased_name = dec.get("full_name", "Deceased")
+    deceased_name = dec.get("full_name", "Deceased") if dec else "Deceased"
 
     # 2. Assets & Net Estate (Money as Decimal)
-    assets = [a for a in AssetRepo.list_by_case(case_id) if not a.get("deleted")]
+    assets = [a for a in raw_assets if not a.get("deleted")]
     assets_found = len(assets)
     estate_value = Decimal("0")
     by_type_map: dict[str, Decimal] = {}
@@ -82,11 +102,9 @@ def get_case_overview(case_id: str, uid: str) -> dict[str, Any]:
     baseline_days = 180  # Statutorily verified offline court/probate average
 
     # 5. Risk Score & Disputes
-    disputes = DisputeRepo.list_by_case(case_id)
     _, risk_label, _ = compute_risk_score(disputes)
 
     # 6. Consent counts
-    parties = ConsentRepo.list_by_case(case_id)
     consent_total = len(parties)
     consent_given = len([p for p in parties if str(p.get("status", "")).upper() == "GIVEN"])
 
@@ -108,7 +126,6 @@ def get_case_overview(case_id: str, uid: str) -> dict[str, Any]:
             target_route="/disputes",
         ))
 
-    docs = DocumentRepo.list_by_case(case_id)
     unverified_docs = [d for d in docs if not d.get("verified") and not d.get("deleted")]
     if unverified_docs or not docs:
         next_actions.append(NextAction(
@@ -149,7 +166,6 @@ def get_case_overview(case_id: str, uid: str) -> dict[str, Any]:
 
     # 9. Timeline (recent AuditLog + Run events)
     timeline: list[dict[str, Any]] = []
-    audit_entries = AuditLogRepo.list_by_case(case_id, limit=8)
     for entry in audit_entries[:8]:
         timeline.append({
             "id": entry.get("entry_hash", "")[:12],
@@ -161,7 +177,6 @@ def get_case_overview(case_id: str, uid: str) -> dict[str, Any]:
         })
 
     # Add latest run events if available
-    active_run = AgentRunRepo.get_active_by_case(case_id)
     if active_run:
         events = AgentEventRepo.list_events_after(active_run["run_id"], after_seq=0)
         for ev in events[-5:]:
@@ -183,7 +198,6 @@ def get_case_overview(case_id: str, uid: str) -> dict[str, Any]:
     is_debouncing = change_propagator.is_pending_or_active(case_id)
 
     derived_stale = False
-    shares = ShareResultRepo.list_by_case(case_id, scenario="current")
     if shares and any(int(s.get("computed_for_version") or 0) != case_data_version for s in shares):
         derived_stale = True
     if claims and any(int(c.get("computed_for_version") or 0) != case_data_version for c in claims):

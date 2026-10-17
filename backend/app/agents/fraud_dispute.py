@@ -250,11 +250,17 @@ class FraudDisputeAgent(BaseAgent):
             reasoning_text = ""
             if client:
                 try:
+                    from google.genai import types
                     t0 = time.perf_counter()
+                    config = types.GenerateContentConfig(
+                        temperature=0.1,
+                        thinking_config=types.ThinkingConfig(thinking_budget=0),
+                    )
                     response = await asyncio.to_thread(
                         client.models.generate_content,
-                        model=self.settings.GEMINI_PRO_MODEL,
+                        model=self.settings.GEMINI_FLASH_MODEL,
                         contents=prompt,
+                        config=config,
                     )
                     dur_ms = (time.perf_counter() - t0) * 1000.0
                     in_tokens = 0
@@ -262,11 +268,11 @@ class FraudDisputeAgent(BaseAgent):
                     if hasattr(response, "usage_metadata") and response.usage_metadata:
                         in_tokens = getattr(response.usage_metadata, "prompt_token_count", 0) or 0
                         out_tokens = getattr(response.usage_metadata, "candidates_token_count", 0) or 0
-                    record_model_call(self.settings.GEMINI_PRO_MODEL, dur_ms, in_tokens, out_tokens, operation="fraud_dispute_reasoning")
+                    record_model_call(self.settings.GEMINI_FLASH_MODEL, dur_ms, in_tokens, out_tokens, operation="fraud_dispute_reasoning")
                     if response and response.text:
                         reasoning_text = response.text.strip()
                 except Exception as e:
-                    logger.warning("Gemini Pro reasoning fallback used for %s: %s", kind, e)
+                    logger.warning("Gemini Flash reasoning fallback used for %s: %s", kind, e)
 
             # Fallback high-fidelity reasoning if LLM call is unavailable or times out
             if not reasoning_text:

@@ -311,6 +311,9 @@ Known deceased in case context: '{deceased_name}'.
     )
 
 
+_CONTENT_HASH_CACHE: dict[str, dict[str, Any]] = {}
+
+
 # ---------------------------------------------------------------------------
 # Extraction Engine Class
 # ---------------------------------------------------------------------------
@@ -320,8 +323,8 @@ class ExtractionEngine:
         self.client = client or get_genai_client(self.settings)
 
     @retry(
-        stop=stop_after_attempt(4),
-        wait=wait_exponential(multiplier=2, min=3, max=15),
+        stop=stop_after_attempt(2),
+        wait=wait_exponential(multiplier=1.5, min=1, max=5),
         retry=retry_if_exception_type(Exception),
         reraise=True,
     )
@@ -329,13 +332,14 @@ class ExtractionEngine:
         self,
         contents: list[Any],
         response_schema: type[BaseModel] | None = None,
-        timeout: float = 60.0,
+        timeout: float = 25.0,
     ) -> Any:
-        """Execute Gemini Flash call with tenacity retry and structured output."""
+        """Execute Gemini Flash call with thinking_budget=0, 25s timeout and structured output."""
         config = types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=response_schema,
             temperature=0.0,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
         )
         t0 = time.perf_counter()
         response = self.client.models.generate_content(
@@ -376,12 +380,21 @@ class ExtractionEngine:
         """Main end-to-end document processing method.
 
         Includes:
+        - Content hash cache lookup (honest and labelled with cached=True)
+        - Image downscaling to minimum readable size (max 1600px)
         - Image blur assessment
-        - Gemini classification & extraction with retries
+        - Gemini classification & extraction with thinking_budget=0
         - Seed cache fallback on error when AGENT_FALLBACK_TO_CACHE=True
         - Masking sensitive numbers
         - Cross-field and rapidfuzz validation
         """
+        # 1. Honest Content Hash Cache Check
+        content_hash = hashlib.sha256(raw_bytes).hexdigest()
+        if content_hash in _CONTENT_HASH_CACHE:
+            cached_res = dict(_CONTENT_HASH_CACHE[content_hash])
+            cached_res["cached"] = True
+            return cached_res
+
         ext = filename.lower().split(".")[-1]
         if raw_bytes.startswith(b"%PDF"):
             mime_type = "application/pdf"
@@ -391,6 +404,18 @@ class ExtractionEngine:
             mime_type = "image/jpeg"
         else:
             mime_type = "application/pdf" if ext == "pdf" else "image/png"
+
+        # Downscale oversized images to minimum readable size
+        if mime_type.startswith("image/"):
+            try:
+                with Image.open(io.BytesIO(raw_bytes)) as img:
+                    if max(img.size) > 1600:
+                        img.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+                        out_buf = io.BytesIO()
+                        img.save(out_buf, format=img.format or "JPEG", quality=85)
+                        raw_bytes = out_buf.getvalue()
+            except Exception:
+                pass
 
         blur_multiplier = compute_image_blur_penalty(raw_bytes, mime_type)
         part = types.Part.from_bytes(data=raw_bytes, mime_type=mime_type)
@@ -436,14 +461,17 @@ class ExtractionEngine:
             # Enrich with flat aliases for cache/evaluation
             enriched_fields = enrich_with_aliases(doc_type, masked_fields)
 
-            return {
+            res_payload = {
                 "doc_type": doc_type,
                 "extracted": enriched_fields,
                 "field_confidence": updated_conf,
                 "status": "EXTRACTED",
                 "verified": verified,
                 "degraded": False,
+                "cached": False,
             }
+            _CONTENT_HASH_CACHE[content_hash] = res_payload
+            return res_payload
 
         except Exception as exc:
             logger.warning(f"Gemini extraction failed: {exc}. Checking cache fallback...")

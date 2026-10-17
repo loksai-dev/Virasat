@@ -54,9 +54,10 @@ def extract_pending_documents_tool(case_id: str) -> dict[str, Any]:
     extracted_count = 0
     errors = []
 
+    import concurrent.futures
+
+    pending_docs = []
     for d in docs:
-        doc_id = d["doc_id"]
-        fname = d.get("original_name", "")
         current_ext = d.get("extracted") or {}
         is_pending = (
             d.get("status") == "PENDING"
@@ -64,16 +65,17 @@ def extract_pending_documents_tool(case_id: str) -> dict[str, Any]:
             or current_ext == {"seeded": True}
             or current_ext.get("seeded") is True
         )
+        if is_pending:
+            pending_docs.append(d)
 
-        if not is_pending:
-            continue
-
+    def _process_single_doc(d: dict[str, Any]) -> tuple[bool, dict[str, Any] | None]:
+        doc_id = d["doc_id"]
+        fname = d.get("original_name", "")
         try:
-            # Resolve canonical seed stem (e.g. doc-sharma-05) from doc_id suffix or fname
             idx = doc_id.split("-")[-1] if "-" in doc_id else ""
             canonical_seed_stem = f"doc-{seed_key}-{idx}"
 
-            # 1. Check pre-computed cache first for instant robust extraction
+            # 1. Check pre-computed cache first
             cache_file = SEED_CACHE_DIR / seed_key / f"{canonical_seed_stem}.json"
             if not cache_file.exists():
                 cache_file = SEED_CACHE_DIR / seed_key / f"{Path(fname).stem}.json"
@@ -88,33 +90,45 @@ def extract_pending_documents_tool(case_id: str) -> dict[str, Any]:
                     "status": "EXTRACTED",
                     "verified": True,
                     "degraded": False,
+                    "cached": True,
                 }
                 DocumentRepo.update(case_id, doc_id, updates, actor="IntakeAgent")
-                extracted_count += 1
-            else:
-                # 2. Check local seed docs
-                seed_doc_path = SEED_DOCS_DIR / seed_key / fname
-                if not seed_doc_path.exists():
-                    matches = list((SEED_DOCS_DIR / seed_key).glob(f"{canonical_seed_stem}.*"))
-                    if matches:
-                        seed_doc_path = matches[0]
+                return True, None
 
-                if seed_doc_path.exists():
-                    raw_bytes = seed_doc_path.read_bytes()
-                    result = engine.process_document(raw_bytes, fname)
-                    updates = {
-                        "doc_type": result["doc_type"],
-                        "extracted": result["extracted"],
-                        "field_confidence": result["field_confidence"],
-                        "status": result["status"],
-                        "verified": result["verified"],
-                        "degraded": result["degraded"],
-                    }
-                    DocumentRepo.update(case_id, doc_id, updates, actor="IntakeAgent")
-                    extracted_count += 1
+            # 2. Check local seed docs
+            seed_doc_path = SEED_DOCS_DIR / seed_key / fname
+            if not seed_doc_path.exists():
+                matches = list((SEED_DOCS_DIR / seed_key).glob(f"{canonical_seed_stem}.*"))
+                if matches:
+                    seed_doc_path = matches[0]
+
+            if seed_doc_path.exists():
+                raw_bytes = seed_doc_path.read_bytes()
+                result = engine.process_document(raw_bytes, fname)
+                updates = {
+                    "doc_type": result["doc_type"],
+                    "extracted": result["extracted"],
+                    "field_confidence": result["field_confidence"],
+                    "status": result["status"],
+                    "verified": result["verified"],
+                    "degraded": result["degraded"],
+                    "cached": result.get("cached", False),
+                }
+                DocumentRepo.update(case_id, doc_id, updates, actor="IntakeAgent")
+                return True, None
+            return False, None
         except Exception as e:
             logger.warning("Could not extract document %s (%s): %s", doc_id, fname, e)
-            errors.append({"doc_id": doc_id, "error": str(e)})
+            return False, {"doc_id": doc_id, "error": str(e)}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+        results = list(executor.map(_process_single_doc, pending_docs))
+
+    for success, err in results:
+        if success:
+            extracted_count += 1
+        elif err:
+            errors.append(err)
 
     return {"extracted_count": extracted_count, "errors": errors}
 

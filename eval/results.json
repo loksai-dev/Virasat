@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-11T13:16:56.263358+00:00",
+  "timestamp": "2026-10-17T04:22:16.674682+00:00",
   "environment": {
     "gcp_project": "virasat-511210",
     "models": {
@@ -536,9 +536,9 @@
       "from_scratch_identical": true,
       "equivalence_accuracy_pct": 100.0,
       "shares_final": {
-        "P-WIDOW": 33.333333333333336,
+        "P-SON": 33.333333333333336,
         "P-DAUGHTER": 33.333333333333336,
-        "P-SON": 33.333333333333336
+        "P-WIDOW": 33.333333333333336
       },
       "discrepancies": []
     }

@@ -33,13 +33,16 @@ from rapidfuzz import fuzz
 import time
 from app.config import Settings, get_settings
 from app.db import graph_queries
-from app.db.client import run_in_snapshot
+from app.db.client import run_in_snapshot, run_in_bounded_staleness_snapshot
 from app.deps import get_genai_client
 from app.engines.verifier import AnswerVerifier
 from app.models.schemas import GraphRAGAnswer, GraphRAGContext
 from app.services.timing import record_model_call
 
 logger = logging.getLogger(__name__)
+
+# Query embedding cache for GraphRAG
+_QUERY_EMBEDDING_CACHE: dict[str, list[float]] = {}
 
 
 from tenacity import (
@@ -167,7 +170,10 @@ class GraphRAGEngine:
         stop=stop_after_attempt(5),
     )
     def _embed_query(self, query: str) -> list[float]:
-        """Generate 768-dim embedding for question with RETRIEVAL_QUERY task type."""
+        """Generate 768-dim embedding for question with RETRIEVAL_QUERY task type, caching results."""
+        if query in _QUERY_EMBEDDING_CACHE:
+            return _QUERY_EMBEDDING_CACHE[query]
+
         t0 = time.perf_counter()
         resp = self.genai_client.models.embed_content(
             model=self.settings.EMBED_MODEL,
@@ -179,7 +185,9 @@ class GraphRAGEngine:
         )
         dur_ms = (time.perf_counter() - t0) * 1000.0
         record_model_call(self.settings.EMBED_MODEL, dur_ms, in_tokens=len(query.split()), out_tokens=0, operation="embed_content")
-        return resp.embeddings[0].values
+        emb = resp.embeddings[0].values
+        _QUERY_EMBEDDING_CACHE[query] = emb
+        return emb
 
     @retry(
         retry=retry_if_exception_type(Exception),
@@ -240,10 +248,10 @@ class GraphRAGEngine:
                 })
             return results
 
-        return run_in_snapshot(_exec)
+        return run_in_bounded_staleness_snapshot(_exec, max_staleness_sec=10)
 
     def _hybrid_retrieve_clauses(
-        self, question: str, k: int = 6, q_vec: list[float] | None = None
+        self, question: str, k: int = 4, q_vec: list[float] | None = None
     ) -> list[dict[str, Any]]:
         """Perform hybrid retrieval: vector search + keyword re-ranking."""
         if q_vec is None:
@@ -639,6 +647,7 @@ class GraphRAGEngine:
                         system_instruction=system_instruction,
                         response_mime_type="application/json",
                         temperature=0.1,
+                        thinking_config=types.ThinkingConfig(thinking_budget=128),
                     ),
                 )
                 raw_text = resp.text.strip()
