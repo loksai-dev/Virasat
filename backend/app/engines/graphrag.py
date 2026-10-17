@@ -30,12 +30,14 @@ from google.cloud import spanner
 from google.genai import types
 from rapidfuzz import fuzz
 
+import time
 from app.config import Settings, get_settings
 from app.db import graph_queries
 from app.db.client import run_in_snapshot
 from app.deps import get_genai_client
 from app.engines.verifier import AnswerVerifier
 from app.models.schemas import GraphRAGAnswer, GraphRAGContext
+from app.services.timing import record_model_call
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +168,7 @@ class GraphRAGEngine:
     )
     def _embed_query(self, query: str) -> list[float]:
         """Generate 768-dim embedding for question with RETRIEVAL_QUERY task type."""
+        t0 = time.perf_counter()
         resp = self.genai_client.models.embed_content(
             model=self.settings.EMBED_MODEL,
             contents=[query],
@@ -174,6 +177,8 @@ class GraphRAGEngine:
                 output_dimensionality=self.settings.EMBED_DIM,
             ),
         )
+        dur_ms = (time.perf_counter() - t0) * 1000.0
+        record_model_call(self.settings.EMBED_MODEL, dur_ms, in_tokens=len(query.split()), out_tokens=0, operation="embed_content")
         return resp.embeddings[0].values
 
     @retry(
@@ -183,6 +188,7 @@ class GraphRAGEngine:
     )
     def _embed_queries_batch(self, queries: list[str]) -> list[list[float]]:
         """Generate 768-dim embeddings in a single batch request to avoid rate limits."""
+        t0 = time.perf_counter()
         resp = self.genai_client.models.embed_content(
             model=self.settings.EMBED_MODEL,
             contents=queries,
@@ -191,6 +197,9 @@ class GraphRAGEngine:
                 output_dimensionality=self.settings.EMBED_DIM,
             ),
         )
+        dur_ms = (time.perf_counter() - t0) * 1000.0
+        tokens = sum(len(q.split()) for q in queries)
+        record_model_call(self.settings.EMBED_MODEL, dur_ms, in_tokens=tokens, out_tokens=0, operation="embed_queries_batch")
         return [e.values for e in resp.embeddings]
 
     def _vector_search_clauses(self, query_vec: list[float], limit: int = 15) -> list[dict[str, Any]]:

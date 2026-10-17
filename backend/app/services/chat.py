@@ -30,6 +30,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from app.config import get_settings
 from app.db import graph_queries
+from app.services.timing import record_model_call
 from app.db.repositories import (
     AssetRepo,
     CasesRepo,
@@ -167,6 +168,7 @@ async def classify_intent(message: str) -> dict[str, Any]:
     )
 
     try:
+        t0 = time.perf_counter()
         resp = await asyncio.to_thread(
             client.models.generate_content,
             model=settings.GEMINI_FLASH_MODEL,
@@ -176,6 +178,13 @@ async def classify_intent(message: str) -> dict[str, Any]:
                 temperature=0.0,
             ),
         )
+        dur_ms = (time.perf_counter() - t0) * 1000.0
+        in_tokens = 0
+        out_tokens = 0
+        if hasattr(resp, "usage_metadata") and resp.usage_metadata:
+            in_tokens = getattr(resp.usage_metadata, "prompt_token_count", 0) or 0
+            out_tokens = getattr(resp.usage_metadata, "candidates_token_count", 0) or 0
+        record_model_call(settings.GEMINI_FLASH_MODEL, dur_ms, in_tokens, out_tokens, operation="chat_intent")
         data = json.loads(resp.text.strip())
         if data.get("intent") in INTENT_CLASSES:
             return data
@@ -688,6 +697,7 @@ async def stream_chat_response(
             )
 
         def _generate_call(m_name: str) -> dict[str, Any]:
+            t0 = time.perf_counter()
             resp = client.models.generate_content(
                 model=m_name,
                 contents=prompt_to_send,
@@ -697,6 +707,13 @@ async def stream_chat_response(
                     temperature=0.1,
                 ),
             )
+            dur_ms = (time.perf_counter() - t0) * 1000.0
+            in_tokens = 0
+            out_tokens = 0
+            if hasattr(resp, "usage_metadata") and resp.usage_metadata:
+                in_tokens = getattr(resp.usage_metadata, "prompt_token_count", 0) or 0
+                out_tokens = getattr(resp.usage_metadata, "candidates_token_count", 0) or 0
+            record_model_call(m_name, dur_ms, in_tokens, out_tokens, operation="chat_generate")
             return json.loads(resp.text.strip())
 
         @retry(

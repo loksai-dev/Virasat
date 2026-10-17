@@ -1,7 +1,7 @@
 
 from fastapi import Depends
 from google import genai
-from google.cloud import spanner
+from google.cloud import spanner, storage
 
 from app.auth import get_current_uid
 from app.config import Settings, get_settings
@@ -10,6 +10,7 @@ from app.logging_setup import get_current_request_id
 # Singletons for reused clients
 _spanner_client: spanner.Client | None = None
 _genai_client: genai.Client | None = None
+_storage_client: storage.Client | None = None
 
 
 def get_spanner_client(settings: Settings | None = None) -> spanner.Client:
@@ -49,6 +50,17 @@ def get_genai_client(settings: Settings | None = None) -> genai.Client:
     return _genai_client
 
 
+def get_storage_client(settings: Settings | None = None) -> storage.Client:
+    """Return shared Google Cloud Storage client."""
+    global _storage_client
+    if settings is None:
+        settings = get_settings()
+    if _storage_client is None:
+        _storage_client = storage.Client(project=settings.GCP_PROJECT)
+    return _storage_client
+
+
 # Re-export auth dependency for convenience
 CurrentUser = Depends(get_current_uid)
+
 RequestId = Depends(get_current_request_id)

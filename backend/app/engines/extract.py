@@ -31,8 +31,10 @@ from tenacity import (
     wait_exponential,
 )
 
+import time
 from app.config import get_settings
 from app.deps import get_genai_client
+from app.services.timing import record_model_call
 
 logger = logging.getLogger(__name__)
 
@@ -335,11 +337,19 @@ class ExtractionEngine:
             response_schema=response_schema,
             temperature=0.0,
         )
+        t0 = time.perf_counter()
         response = self.client.models.generate_content(
             model=self.settings.GEMINI_FLASH_MODEL,
             contents=contents,
             config=config,
         )
+        dur_ms = (time.perf_counter() - t0) * 1000.0
+        in_tokens = 0
+        out_tokens = 0
+        if hasattr(response, "usage_metadata") and response.usage_metadata:
+            in_tokens = getattr(response.usage_metadata, "prompt_token_count", 0) or 0
+            out_tokens = getattr(response.usage_metadata, "candidates_token_count", 0) or 0
+        record_model_call(self.settings.GEMINI_FLASH_MODEL, dur_ms, in_tokens, out_tokens, operation="extract_document")
         return response
 
     def classify_document(self, part: types.Part) -> tuple[str, float]:

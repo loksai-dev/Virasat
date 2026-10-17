@@ -30,9 +30,11 @@ from app.db.repositories import (
     RelationshipRepo,
     WillRepo,
 )
+import time
 from app.deps import get_genai_client
 from app.engines.detectors import run_all_detectors
 from app.services.events import EventEmitter
+from app.services.timing import record_model_call
 
 logger = logging.getLogger(__name__)
 
@@ -248,11 +250,19 @@ class FraudDisputeAgent(BaseAgent):
             reasoning_text = ""
             if client:
                 try:
+                    t0 = time.perf_counter()
                     response = await asyncio.to_thread(
                         client.models.generate_content,
                         model=self.settings.GEMINI_PRO_MODEL,
                         contents=prompt,
                     )
+                    dur_ms = (time.perf_counter() - t0) * 1000.0
+                    in_tokens = 0
+                    out_tokens = 0
+                    if hasattr(response, "usage_metadata") and response.usage_metadata:
+                        in_tokens = getattr(response.usage_metadata, "prompt_token_count", 0) or 0
+                        out_tokens = getattr(response.usage_metadata, "candidates_token_count", 0) or 0
+                    record_model_call(self.settings.GEMINI_PRO_MODEL, dur_ms, in_tokens, out_tokens, operation="fraud_dispute_reasoning")
                     if response and response.text:
                         reasoning_text = response.text.strip()
                 except Exception as e:

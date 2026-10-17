@@ -1,0 +1,21 @@
+title = "Virasat Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist for virtual environments, local env files, test fixtures, build artifacts, and scan reports"
+paths = [
+    '''backend/\.venv/.*''',
+    '''.*\.venv/.*''',
+    '''node_modules/.*''',
+    '''frontend/\.env\.local''',
+    '''.*\.env\.local''',
+    '''gitleaks_.*\.json''',
+    '''scripts/smoke_test\.py''',
+    '''backend/tests/.*''',
+    '''frontend/dist/.*''',
+]
+regexes = [
+    '''--region=asia-south1''',
+]

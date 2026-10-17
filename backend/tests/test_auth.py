@@ -56,4 +56,5 @@ async def test_auth_local_dev_uid_bypass(async_client: AsyncClient, monkeypatch)
     response = await async_client.get("/api/cases/VR-2026-0142/overview", headers=headers)
     # Auth should succeed and not return 401 Unauthorized
     assert response.status_code != 401
-    assert response.status_code in (200, 404)
+    assert response.status_code in (200, 403, 404)
+

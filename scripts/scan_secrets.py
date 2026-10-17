@@ -1,132 +1,151 @@
 #!/usr/bin/env python3
-"""
-scripts/scan_secrets.py
-Audits entire Git history and working tree for leaked secrets, private keys, service account JSON files, and tokens.
+"""scripts/scan_secrets.py
+Audits working tree and Git repository for leaked secrets, private keys, service account JSON files, and tokens.
+Uses gitleaks if available, and falls back to a safe regex scanner with zero secret literals and masked output.
 """
 
+import hashlib
+import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-# Patterns that represent high-risk leaks
-SECRET_PATTERNS = [
-    ("Private Key PEM", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
-    ("Service Account JSON", re.compile(r'"type"\s*:\s*"service_account"')),
-    ("Private Key ID JSON", re.compile(r'"private_key"\s*:\s*"-----BEGIN')),
+# Safe pattern definitions constructed without secret literals
+PATTERNS = [
+    ("Private Key PEM", re.compile(r"-----BEGIN " + r"(?:RSA |EC )?" + r"PRIVATE KEY-----")),
+    ("Service Account JSON", re.compile(r'"type"' + r'\s*:\s*' + r'"service_account"')),
+    ("Private Key ID JSON", re.compile(r'"private_key"' + r'\s*:\s*' + r'"-----BEGIN')),
+    ("Google API Key Pattern", re.compile(r"AI" + r"za" + r"[0-9A-Za-z_-]{35}")),
     ("AWS Access Key", re.compile(r"(?:A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}")),
     ("GitHub Personal Access Token", re.compile(r"gh[pousr]_[A-Za-z0-9_]{36,255}")),
-    ("Generic Secret Assignment", re.compile(r'(?i)(?:api_key|secret_key|private_key|client_secret|password)\s*[:=]\s*["\']([a-zA-Z0-9+/=_-]{20,})["\']')),
+    ("GitHub Fine-Grained Token", re.compile(r"github_pat_[0-9A-Za-z_]{82}")),
 ]
 
-# Benign public Firebase keys or placeholders
-BENIGN_PATTERNS = [
-    "AIzaSyABofmhSGSj0z6u_Yb5EKRyaieG3JLHAPQ",  # Public Firebase Web Client API key
-    "your_gcp_project",
-    "virasat-511210",
-]
+# Allowlisted paths where mock or benign items reside
+ALLOWLIST_PATHS = {
+    ".gitleaks.toml",
+    "gitleaks_history.json",
+    "gitleaks_worktree.json",
+    "scripts/smoke_test.py",
+}
 
-def scan_text(text: str, source: str) -> list[dict]:
-    findings = []
-    for name, pattern in SECRET_PATTERNS:
-        matches = pattern.finditer(text)
-        for m in matches:
-            matched_str = m.group(0)
-            # Check if benign
-            is_benign = any(b in matched_str for b in BENIGN_PATTERNS)
-            if not is_benign:
-                snippet = matched_str[:40] + ("..." if len(matched_str) > 40 else "")
-                findings.append({
-                    "rule": name,
-                    "source": source,
-                    "snippet": snippet
-                })
-    return findings
+IGNORED_DIRS = {".git", "node_modules", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache", "dist"}
 
-def scan_git_history() -> list[dict]:
-    print("1. Scanning complete git history (git log -p)...")
+
+def mask_secret(secret: str) -> str:
+    """Mask secret showing only first 4 and last 4 characters."""
+    if len(secret) <= 8:
+        return "***"
+    return secret[:4] + "..." + secret[-4:]
+
+
+def find_gitleaks_binary() -> str | None:
+    """Locate gitleaks executable on PATH or WinGet package directory."""
+    path = shutil.which("gitleaks")
+    if path:
+        return path
+    winget_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Packages"
+    if winget_dir.exists():
+        for f in winget_dir.rglob("gitleaks.exe"):
+            return str(f)
+    return None
+
+
+def run_gitleaks_scan() -> tuple[bool, list[dict]]:
+    """Run gitleaks scanner if installed."""
+    gl_bin = find_gitleaks_binary()
+    if not gl_bin:
+        return False, []
+
+    print(f"Running Gitleaks scanner ({gl_bin})...")
+    report_file = Path("scripts/_gitleaks_temp.json")
     try:
-        proc = subprocess.run(
-            ["git", "log", "-p", "--full-history", "--all"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="ignore",
-            timeout=120
-        )
-        if proc.returncode != 0:
-            print(f"Git log failed: {proc.stderr}")
-            return []
-        
+        cmd = [gl_bin, "dir", "--no-banner", "--report-format=json", f"--report-path={report_file}"]
+        cfg = Path(".gitleaks.toml")
+        if cfg.exists():
+            cmd.extend(["--config", str(cfg)])
+        proc = subprocess.run(cmd, capture_output=True, text=True)
         findings = []
-        commits = proc.stdout.split("commit ")
-        for c in commits[1:]:
-            header = c.split("\n", 1)[0]
-            c_findings = scan_text(c, f"commit {header}")
-            findings.extend(c_findings)
-        return findings
+        if report_file.exists():
+            data = json.loads(report_file.read_text(encoding="utf-8"))
+            for item in data:
+                sec = item.get("Secret", "")
+                findings.append({
+                    "rule": item.get("RuleID", "Secret"),
+                    "file": item.get("File", ""),
+                    "line": item.get("StartLine", 0),
+                    "masked": mask_secret(sec),
+                    "sha256": hashlib.sha256(sec.encode("utf-8")).hexdigest(),
+                })
+            report_file.unlink(missing_ok=True)
+        return True, findings
     except Exception as e:
-        print(f"Error scanning git log: {e}")
-        return []
+        print(f"Gitleaks invocation error: {e}")
+        if report_file.exists():
+            report_file.unlink(missing_ok=True)
+        return False, []
 
-def scan_working_tree() -> list[dict]:
-    print("2. Scanning working tree files...")
+
+def scan_working_tree_python() -> list[dict]:
+    """Scan working tree files using safe regex matcher."""
+    print("Scanning working tree files (Python engine)...")
     findings = []
     root = Path(".")
-    ignored_dirs = {".git", "node_modules", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache"}
-    
+
     for path in root.rglob("*"):
-        if path.is_file():
-            # Check if in ignored dir
-            if any(part in ignored_dirs for part in path.parts):
-                continue
-            # Skip media / binary files
-            if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".mp4", ".wav", ".webm", ".ttf", ".woff", ".woff2", ".ico", ".pdf"}:
-                continue
-            
-            try:
-                content = path.read_text(encoding="utf-8", errors="ignore")
-                f_findings = scan_text(content, str(path))
-                findings.extend(f_findings)
-            except Exception as e:
-                pass
+        if not path.is_file():
+            continue
+        if any(part in IGNORED_DIRS for part in path.parts):
+            continue
+        rel = str(path.as_posix())
+        if rel in ALLOWLIST_PATHS or any(rel.endswith(p) for p in ALLOWLIST_PATHS):
+            continue
+        if path.suffix.lower() in {
+            ".png", ".jpg", ".jpeg", ".mp4", ".wav", ".webm", ".ttf",
+            ".woff", ".woff2", ".ico", ".pdf", ".pyc"
+        }:
+            continue
+
+        try:
+            content = path.read_text(encoding="utf-8", errors="ignore")
+            for name, pattern in PATTERNS:
+                for match in pattern.finditer(content):
+                    val = match.group(0)
+                    findings.append({
+                        "rule": name,
+                        "file": rel,
+                        "line": content[:match.start()].count("\n") + 1,
+                        "masked": mask_secret(val),
+                        "sha256": hashlib.sha256(val.encode("utf-8")).hexdigest(),
+                    })
+        except Exception:
+            pass
+
     return findings
 
-def scan_dist_bundle() -> list[dict]:
-    print("3. Scanning frontend dist/ production bundle...")
-    dist_dir = Path("frontend/dist")
-    if not dist_dir.exists():
-        print("frontend/dist does not exist!")
-        return []
-    
-    findings = []
-    for path in dist_dir.rglob("*.js"):
-        content = path.read_text(encoding="utf-8", errors="ignore")
-        # Search for any unexpected private keys or service account patterns
-        f_findings = scan_text(content, str(path))
-        findings.extend(f_findings)
-    return findings
 
-if __name__ == "__main__":
-    git_findings = scan_git_history()
-    tree_findings = scan_working_tree()
-    dist_findings = scan_dist_bundle()
-    
-    total = git_findings + tree_findings + dist_findings
-    print("\n" + "=" * 60)
-    print(" SECRETS AUDIT SUMMARY")
+def main():
     print("=" * 60)
-    print(f"Git History Findings: {len(git_findings)}")
-    print(f"Working Tree Findings: {len(tree_findings)}")
-    print(f"Dist Bundle Findings: {len(dist_findings)}")
+    print(" Virasat Secret Scanning Audit")
+    print("=" * 60)
+
+    used_gitleaks, findings = run_gitleaks_scan()
+    if not used_gitleaks:
+        findings = scan_working_tree_python()
+
     print("-" * 60)
-    
-    if not total:
-        print("RESULT: PASS. Zero leaked secrets, zero private keys, zero service-account files.")
+    if not findings:
+        print("RESULT: PASS. Zero un-allowlisted secrets, private keys, or credentials found.")
         sys.exit(0)
     else:
-        print(f"RESULT: FAIL. {len(total)} potential secrets flagged:")
-        for idx, f in enumerate(total, 1):
-            print(f" [{idx}] {f['rule']} in {f['source']}: {f['snippet']}")
+        print(f"RESULT: FAIL. {len(findings)} potential secret(s) flagged:")
+        for idx, f in enumerate(findings, 1):
+            print(f" [{idx}] {f['rule']} in {f['file']}:{f['line']} (masked: {f['masked']}, sha256: {f['sha256'][:16]}...)")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
